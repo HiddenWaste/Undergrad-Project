@@ -48,17 +48,27 @@ class OSCControlHub:
         print("\nAvailable ports:")
         for p in ports:
             print(f"- {p.device}: {p.description}")
-            
-    def generate_effects(self):
-        """Generate random effects for both SuperCollider and Processing."""
-        frequency = random.randint(440, 880)
-        num_fireballs = random.randint(1, 3)
+
+
+    # What message will be sent?           
+    def generate_effects(self, effect):
         
-        # Send messages to both applications
-        self.sc_client.send_message("/test", frequency)
-        self.processing_client.send_message("/fireball", [num_fireballs])
+        match effect:
+            case 1:
+                frequency = random.randint(440, 880)
+                num_fireballs = random.randint(1, 3)
+                self.sc_client.send_message("/test", frequency)
+                self.processing_client.send_message("/fireball", [num_fireballs])
+            case 5:
+                num_fireballs = random.randint(4, 8)
+                self.sc_client.send_message("/kick", 300)
+                self.processing_client.send_message("/fireball", [num_fireballs])
         
-        print(f"Triggered {num_fireballs} fireballs and Synth with frequency: {frequency:.2f} Hz")
+        # # Send messages to both applications
+        # self.sc_client.send_message("/test", frequency)
+        # self.processing_client.send_message("/fireball", [num_fireballs])
+        
+        # print(f"Triggered {num_fireballs} fireballs and Synth with frequency: {frequency:.2f} Hz")
         
     def cleanup(self):
         """Clean up resources before exiting."""
@@ -67,7 +77,7 @@ class OSCControlHub:
             print("Arduino connection closed.")
             
     def run(self):
-        """Main loop for reading Arduino input and sending OSC messages."""
+    # """Main loop for reading Arduino input and sending OSC messages."""
         if not self.arduino:
             print("Arduino not connected. Please connect Arduino first.")
             return
@@ -78,14 +88,21 @@ class OSCControlHub:
         try:
             while True:
                 if self.arduino.in_waiting > 0:
-                    # Read the line from Arduino
-                    line = self.arduino.readline().decode('utf-8').strip()
+                    try:
+                        line = self.arduino.readline().decode('utf-8').strip()
+                        
+                        # Process multiple buttons simultaneously
+                        match line:
+                            case "dbtn":
+                                self.generate_effects(1)
+                            case "pbtn4":
+                                self.generate_effects(5)
+                                
+                    except serial.SerialException as e:
+                        print(f"Error reading serial: {e}")
+                        continue
                     
-                    # Check if button was pressed
-                    if line == "Button pressed":
-                        self.generate_effects()
-                        # Small delay to prevent CPU overload
-                        time.sleep(0.1)
+                time.sleep(0.001)  # 1ms delay instead of 100ms
                         
         except KeyboardInterrupt:
             print("\nShutting down...")

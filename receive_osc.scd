@@ -7,8 +7,29 @@ s.waitForBoot({
     // Clear any previous OSC defs to avoid duplicates
     OSCdef.freeAll;
 
+	SynthDef.new(\sine, {                                       // Define a new SynthDef called \sine
+    arg freq = 440, amp = 0.5, dur = 0.5;                   // Default values for freq, amp, and dur
+    var env, sig;                                           // Declare variables for the envelope and signal
+    env = EnvGen.kr(Env.perc(0.01, 0.1), doneAction: 2);    // Create an envelope with a percussive shape
+    sig = SinOsc.ar(freq) * amp * env;                      // Generate a sine wave and apply the envelope
+    Out.ar([0, 1], sig);                                    // Use [0, 1] to specify stereo output
+    }).add;
 
+	SynthDef.new(\kick, {
+	arg freqA=1000, freqB=50, freqC=1, freqDur1=0.01, freqDur2=0.2, freqC1=1, freqC2=(-1),
+	atk=0.01, rel=1, c1=1, c2=(-12), amp=0.8, pan=0, out=0;
 
+	var sig, env, freqSweep;
+
+	freqSweep = Env([freqA, freqB, freqC], [freqDur1, freqDur2], [freqC1, freqC2]).ar;
+
+	env = Env([0,1,0],[atk,rel],[c1,c2]).kr(2);
+
+	sig = SinOsc.ar(freqSweep, pi/2);
+	sig = sig * env;
+	sig = Pan2.ar(sig, pan, amp);
+	Out.ar(out, sig)
+}).add;
 
 	SynthDef(\bpfsaw, {
 	arg atk=2, sus=0, rel=3,          // Attack, Sustain, and Release for Envelopw
@@ -91,6 +112,18 @@ s.waitForBoot({
 		//~rsaw.play;
 
 	}, '/test');
+
+    "Project ready:".postln;
+    " - SynthDef loaded".postln;
+    " - OSC responder ready on /trigger".postln;
+    "You can now run the Python script".postln;
+});
+
+OSCdef(\kick_test, {|msg, time, addr, recvPort|
+
+		Synth(\kick);
+
+	}, '/kick');
 
     "Project ready:".postln;
     " - SynthDef loaded".postln;

@@ -46,7 +46,7 @@ def main():
                 frequency = random.randint(440, 880)
                 num_fireballs = random.randint(1, 3)
                         
-                        # Send messages to both applications
+                # Send messages to both applications
                 sc_client.send_message("/test", frequency)
                 processing_client.send_message("/fireball", [num_fireballs])
                         
