@@ -62,8 +62,9 @@ class OSCControlHub:
             case 5:
                 num_fireballs = random.randint(4, 8)
                 self.sc_client.send_message("/kick", 300)
-                self.processing_client.send_message("/fireball", [num_fireballs])
-        
+                self.processing_client.send_message("/fireball", [num_fireballs]
+                )
+          
         # # Send messages to both applications
         # self.sc_client.send_message("/test", frequency)
         # self.processing_client.send_message("/fireball", [num_fireballs])
@@ -87,6 +88,12 @@ class OSCControlHub:
         
         try:
             while True:
+                self.processing_client.send_message("effect", 1)
+                time.sleep(3)
+                self.processing_client.send_message("effect", 2)
+                time.sleep(3)
+                self.processing_client.send_message("effect", 3)
+                time.sleep(5)
                 if self.arduino.in_waiting > 0:
                     try:
                         line = self.arduino.readline().decode('utf-8').strip()
