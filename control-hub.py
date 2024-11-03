@@ -136,13 +136,78 @@ class ProcessingManager:
 class SuperColliderManager:
     def __init__(self, port: int = 57120):
         self.client = udp_client.SimpleUDPClient("127.0.0.1", port)
-        self.current_synth = None
+        self.sclang_process = None
         
+        # Paths for both sclang and scsynth
+        self.sclang_path = "C:\\Program Files\\SuperCollider-3.13.0\\sclang.exe"
+        self.scsynth_path = "C:\\Program Files\\SuperCollider-3.13.0\\scsynth.exe"
+        
+        # Check both executables exist
+        if not os.path.exists(self.sclang_path):
+            print(f"sclang not found at {self.sclang_path}")
+            return
+        if not os.path.exists(self.scsynth_path):
+            print(f"scsynth not found at {self.scsynth_path}")
+            return
+            
+        # Add SuperCollider directory to PATH temporarily
+        os.environ['PATH'] = os.environ['PATH'] + ";" + "C:\\Program Files\\SuperCollider"
+        
+        self.start_supercollider()
+
     def send_message(self, address: str, data):
         self.client.send_message(address, data)
-        
+
+    def start_supercollider(self):
+        try:
+            if self.sclang_process:
+                self.sclang_process.terminate()
+                self.sclang_process.wait()
+            
+            sc_dir = os.path.abspath("SuperCollider")
+            main_scd = os.path.join(sc_dir, "main.scd")
+            
+            if not os.path.exists(main_scd):
+                print(f"main.scd not found at {main_scd}")
+                return False
+                
+            self.sclang_process = subprocess.Popen(
+                [self.sclang_path, main_scd],
+                cwd=sc_dir
+            )
+            print(f"Started SuperCollider with {main_scd}")
+            time.sleep(2)  # Give SC time to boot
+            return True
+            
+        except Exception as e:
+            print(f"Error starting SuperCollider: {e}")
+            print(f"Command attempted: {self.sclang_path} with {main_scd}")
+            return False
+
     def cleanup(self):
-        pass
+    # """Clean up SuperCollider process and resources."""
+        try:
+            if self.sclang_process:
+                # Send quit message to SC server first
+                self.client.send_message("/quit", 1)
+                time.sleep(0.5)  # Give SC a moment to quit properly
+                
+                # Then terminate the process
+                self.sclang_process.terminate()
+                self.sclang_process.wait(timeout=5)  # Wait up to 5 seconds
+                print("SuperCollider process terminated")
+                
+            # On Windows, ensure all SC instances are killed
+            if sys.platform == "win32":
+                os.system('taskkill /F /IM sclang.exe 2>nul')
+                os.system('taskkill /F /IM scsynth.exe 2>nul')
+                
+        except Exception as e:
+            print(f"Error during SuperCollider cleanup: {e}")
+            # Force kill if normal termination fails
+            if self.sclang_process:
+                self.sclang_process.kill()
+                print("SuperCollider process force killed")
 
 class ArduinoManager:
     def __init__(self):
@@ -184,8 +249,11 @@ class OSCControlHub:
     def __init__(self):
         print("Initializing Processing....")
         self.processing = ProcessingManager()
+
+        print("Initializing SuperCollider....")
         self.supercollider = SuperColliderManager()
-        print("You may launch SuperCollider Server whenever....")
+        
+        print("Initializing Arduino....")
         self.arduino = ArduinoManager()
         self.arduino.connect_arduino()  # Added connection call
         self.sketch_index = 0
@@ -206,7 +274,7 @@ class OSCControlHub:
             case 7:
                 if self.processing.available_sketches:  # Added check for empty list
                     print(f"Sketch index {self.sketch_index}")
-                    if self.sketch_index == len(self.processing.available_sketches):
+                    if self.sketch_index == len(self.processing.available_sketches) - 1:
                         self.sketch_index = 0
                     else:
                         self.sketch_index = self.sketch_index + 1

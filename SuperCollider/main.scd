@@ -1,4 +1,8 @@
 // osc_project.scd
+s = Server.local;
+s.options.numOutputBusChannels = 2;
+s.options.numInputBusChannels = 2;
+
 (
 // Wait for all previous code to complete
 s.waitForBoot({
