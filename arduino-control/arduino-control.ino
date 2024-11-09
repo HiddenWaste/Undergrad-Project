@@ -1,89 +1,65 @@
-const int dbtn = 3; // Button for Debug LED
+const int dbtn = 3;    // Continuous button
 int dbtn_state = 0;
-int dbtn_Lstate = 0;  // To detect changes
+int dbtn_Lstate = 0;
 
-// 4 Buttons, currently for simply incorporating more buttons
-const int pbtn3 = 6;
+const int pbtn3 = 6;   // Single press buttons
 int pbtn3_state = 0;
 int pbtn3_Lstate = 0;
 
-
-const int pbtn4 = 7; // 'Play Button 4'
+const int pbtn4 = 7;   // Single press buttons
 int pbtn4_state = 0;
 int pbtn4_Lstate = 0;
 
-// 2 LED's, One to Simulate Tempo, and the Debug one
-const int dled = 12;  // Aforementioned debug LED
-//const int tled = 11; // Tempo LED (CURRENTLY NOT IN USE)
+const int dled = 12;
 
 void setup() {
-    
-    // Static Buttons
     pinMode(pbtn3, INPUT_PULLUP);
     pinMode(pbtn4, INPUT_PULLUP);
-
-    // Debug Stuff
-    pinMode(dbtn, INPUT_PULLUP);  // Use internal pull-up
+    pinMode(dbtn, INPUT_PULLUP);
     pinMode(dled, OUTPUT);
-
+    
     Serial.begin(9600);
-    Serial.println("Serial Data System started");  // Confirm serial is working
+    Serial.println("Serial Data System started");
 }
 
 void loop() {
-    // Read the button state
+    // Read all button states at start of loop
     dbtn_state = digitalRead(dbtn);
-
     pbtn3_state = digitalRead(pbtn3);
     pbtn4_state = digitalRead(pbtn4);
 
-    // Only print when the state changes to reduce overhead processing
-
-    // First check is for debug LED
-    if (dbtn_state != dbtn_Lstate) {
-        if (dbtn_state == LOW) {  // Button pressed (LOW with pull-up)
-            Serial.println("dbtn");
-            digitalWrite(dled, LOW);
-        } else {
-            Serial.println(".");
-            digitalWrite(dled, HIGH);
-        }
+    // Continuous button - sends while held
+    if (dbtn_state == LOW) {  // Button is being held
+        Serial.println("dbtn");
+        digitalWrite(dled, LOW);
+    } else if (dbtn_state != dbtn_Lstate) {  // Button released
+        Serial.println(".");
+        digitalWrite(dled, HIGH);
     }
-    // Actual Instrument Portion
+    dbtn_Lstate = dbtn_state;
 
-    // Check the static buttons (pbtn)
+    // Single press buttons - only send on press
     if (pbtn3_state != pbtn3_Lstate) {
-        if (pbtn3_state == LOW) {  // Button pressed (LOW with pull-up)
+        if (pbtn3_state == LOW) {
             Serial.println("pbtn3");
             digitalWrite(dled, LOW);
         } else {
             Serial.println(".");
             digitalWrite(dled, HIGH);
         }
-
-        // Update States
-        dbtn_Lstate = dbtn_state;
         pbtn3_Lstate = pbtn3_state;
     }
 
-
     if (pbtn4_state != pbtn4_Lstate) {
-        if (pbtn4_state == LOW) {  // Button pressed (LOW with pull-up)
+        if (pbtn4_state == LOW) {
             Serial.println("pbtn4");
             digitalWrite(dled, LOW);
         } else {
             Serial.println(".");
             digitalWrite(dled, HIGH);
         }
-
-        // Update States
-        dbtn_Lstate = dbtn_state;
         pbtn4_Lstate = pbtn4_state;
-
     }
 
-    
-
-    //Serial.println("-");
     delay(50);  // Debounce delay
 }

@@ -1,11 +1,13 @@
-from pythonosc import udp_client # Baseline for OSC Messaging
+import asyncio
+from pythonosc import udp_client
+import serial_asyncio
 import serial                    # Serial Data Arduino Interaction
 import serial.tools.list_ports   # ' '  '
-import time
-import subprocess               # To handle running sketches and switching between them
-import random
+import subprocess
 import os
 import sys
+import random
+import time
 from typing import Optional
 
 class ProcessingManager:
@@ -24,8 +26,8 @@ class ProcessingManager:
         else:  # Linux
             self.processing_path = "processing-java"
 
-        self.switch_sketch(None)  # Added call to switch_sketch
-        
+        self._switch_sketch_sync(None)  # Added call to switch_sketch
+
     def find_sketches(self) -> list[str]:
         sketches = []
         sketch_dir = "sketches"
@@ -34,8 +36,19 @@ class ProcessingManager:
                 if os.path.exists(os.path.join(sketch_dir, folder, f"{folder}.pde")):
                     sketches.append(folder)
         return sketches
-        
-    def switch_sketch(self, sketch_name: str):
+
+    async def send_message(self, address: str, data):
+        """Async wrapper for sending OSC messages"""
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self.client.send_message, address, data)
+
+    async def switch_sketch(self, sketch_name: str):
+        """Async version of sketch switching"""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self._switch_sketch_sync, sketch_name)
+
+    def _switch_sketch_sync(self, sketch_name: str):
+        """Synchronous implementation of sketch switching"""
         def kill_processing():
             """Helper function to kill all Processing instances"""
             try:
@@ -110,10 +123,8 @@ class ProcessingManager:
             print(f"Sketch path: {sketch_path}")
             print(f"Processing path: {self.processing_path}")
             return False
-        
-    def send_message(self, address: str, data):
-        self.client.send_message(address, data)
-        
+        pass
+
     def cleanup(self):
         try:
             if self.sketch_process:
@@ -131,7 +142,6 @@ class ProcessingManager:
                 os.system('taskkill /F /IM java.exe 2>nul')  # Kill any leftover Java processes
         except Exception as e:
             print(f"Error during cleanup: {str(e)}")
-
 
 class SuperColliderManager:
     def __init__(self, port: int = 57120):
@@ -155,8 +165,11 @@ class SuperColliderManager:
         
         self.start_supercollider()
 
-    def send_message(self, address: str, data):
-        self.client.send_message(address, data)
+
+    async def send_message(self, address: str, data):
+        """Async wrapper for sending OSC messages"""
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self.client.send_message, address, data)
 
     def start_supercollider(self):
         try:
@@ -212,7 +225,8 @@ class SuperColliderManager:
 class ArduinoManager:
     def __init__(self):
         self.arduino = None
-        
+        self.message_queue = asyncio.Queue()
+
     def find_arduino_port(self) -> Optional[str]:
         ports = serial.tools.list_ports.comports()
         
@@ -221,119 +235,147 @@ class ArduinoManager:
                 return port.device
                 
         return None
-        
-    def connect_arduino(self, port: Optional[str] = None) -> bool:
-        if not port:
-            port = self.find_arduino_port()
-            if not port:
-                print("No Arduino found automatically.")
-                self.list_available_ports()
-                return False
-                
-        try:
-            self.arduino = serial.Serial(port, 9600, timeout=1)
-            print(f"Successfully connected to Arduino on {port}")
-            time.sleep(2)
-            return True
-        except serial.SerialException as e:
-            print(f"Error connecting to Arduino: {str(e)}")
-            return False
-            
+    
     def list_available_ports(self):
         ports = serial.tools.list_ports.comports()
         print("\nAvailable ports:")
         for p in ports:
             print(f"- {p.device}: {p.description}")
 
-class OSCControlHub:
-    def __init__(self):
-        print("Initializing Processing....")
-        self.processing = ProcessingManager()
+    async def connect_arduino(self, port: Optional[str] = None) -> bool:
+        """Async Arduino connection"""
+        if not port:
+            port = self.find_arduino_port()
+            if not port:
+                print("No Arduino found automatically.")
+                self.list_available_ports()
+                return False
 
-        print("Initializing SuperCollider....")
+        try:
+            self.arduino, _ = await serial_asyncio.create_serial_connection(
+                asyncio.get_event_loop(),
+                lambda: ArduinoProtocol(self.message_queue),
+                port,
+                baudrate=9600
+            )
+            print(f"Successfully connected to Arduino on {port}")
+            await asyncio.sleep(2)  # Allow time for Arduino reset
+            return True
+        except Exception as e:
+            print(f"Error connecting to Arduino: {str(e)}")
+            return False
+
+class ArduinoProtocol(asyncio.Protocol):
+    def __init__(self, message_queue: asyncio.Queue):
+        self.message_queue = message_queue
+        self.transport = None
+
+    def connection_made(self, transport):
+        self.transport = transport
+
+    def data_received(self, data):
+        """Handle incoming Arduino data"""
+        try:
+            message = data.decode().strip()
+            if message:
+                asyncio.create_task(self.message_queue.put(message))
+        except Exception as e:
+            print(f"Error receiving data: {e}")
+
+class AsyncOSCControlHub:
+    def __init__(self):
+        self.processing = ProcessingManager()
         self.supercollider = SuperColliderManager()
-        
-        print("Initializing Arduino....")
         self.arduino = ArduinoManager()
-        self.arduino.connect_arduino()  # Added connection call
         self.sketch_index = 0
-        
-    def generate_effects(self, effect):
+        self.running = False
+
+    async def generate_effects(self, effect):
+        """Async version of effect generation"""
         match effect:
             case 1:
                 frequency = random.randint(440, 880)
                 num_missiles = random.randint(1, 3)
-                self.supercollider.send_message("/sine_t", frequency)  # Fixed: removed curly braces
-                self.processing.send_message("/missile", num_missiles)
-                
+                # Send messages concurrently
+                await asyncio.gather(
+                    self.supercollider.send_message("/sine_t", frequency),
+                    self.processing.send_message("/missile", num_missiles)
+                )
             case 5:
                 num_fireballs = random.randint(4, 9)
-                self.supercollider.send_message("/kick", 300)
-                self.processing.send_message("/fireball", num_fireballs)
-
+                await asyncio.gather(
+                    self.supercollider.send_message("/kick", 300),
+                    self.processing.send_message("/fireball", num_fireballs)
+                )
             case 7:
-                if self.processing.available_sketches:  # Added check for empty list
-                    print(f"Sketch index {self.sketch_index}")
+                if self.processing.available_sketches:
                     if self.sketch_index == len(self.processing.available_sketches) - 1:
                         self.sketch_index = 0
                     else:
-                        self.sketch_index = self.sketch_index + 1
-                    self.processing.switch_sketch(self.processing.available_sketches[self.sketch_index])
-                    
+                        self.sketch_index += 1
+                    await self.processing.switch_sketch(
+                        self.processing.available_sketches[self.sketch_index]
+                    )
 
-    def run(self):
-        if not self.arduino.arduino:  # Fixed: check arduino attribute
+    async def process_messages(self):
+        """Process incoming Arduino messages"""
+        while self.running:
+            try:
+                message = await self.arduino.message_queue.get()
+                match message:
+                    case "dbtn":
+                        await self.generate_effects(1)
+                    case "pbtn1":
+                        pass
+                    case "pbtn3":
+                        await self.generate_effects(7)
+                    case "pbtn4":
+                        await self.generate_effects(5)
+            except Exception as e:
+                print(f"Error processing message: {e}")
+
+    async def run(self):
+        """Main async run loop"""
+        if not await self.arduino.connect_arduino():
             print("Arduino not connected. Please connect Arduino first.")
             return
-            
-        print("Running control hub...")
+
+        print("Running async control hub...")
+        self.running = True
         
         try:
-            while True:
-                if self.arduino.arduino.in_waiting > 0:
-                    try:
-                        line = self.arduino.arduino.readline().decode('utf-8').strip()
-                        
-                        match line:
-                            case "dbtn":
-                                self.generate_effects(1)
-                            case "pbtn1":
-                                pass
-                            case "pbtn3":
-                                self.generate_effects(7)
-                                print("Sketch index: ", self.sketch_index)
-                            case "pbtn4":
-                                self.generate_effects(5)
-                                
-                    except serial.SerialException as e:
-                        print(f"Error reading serial: {e}")
-                        continue
-                    
-                time.sleep(0.001)
-                        
+            # Start message processing
+            processor = asyncio.create_task(self.process_messages())
+            
+            # Keep the main loop running
+            while self.running:
+                await asyncio.sleep(0.001)
+                
         except KeyboardInterrupt:
             print("\nShutting down...")
-        except serial.SerialException as e:
-            print(f"\nSerial communication error: {str(e)}")
         except Exception as e:
-            print(f"\nUnexpected error: {str(e)}")
+            print(f"Unexpected error: {e}")
         finally:
-            self.cleanup()
-                
-    def cleanup(self):
-        self.processing.cleanup()
-        self.supercollider.cleanup()
-        if self.arduino.arduino and self.arduino.arduino.is_open:  # Fixed: check arduino attribute
-            self.arduino.arduino.close()
+            self.running = False
+            await self.cleanup()
 
-def main():
-    hub = OSCControlHub()
+    async def cleanup(self):
+        """Async cleanup"""
+        loop = asyncio.get_event_loop()
+        await asyncio.gather(
+            loop.run_in_executor(None, self.processing.cleanup),
+            loop.run_in_executor(None, self.supercollider.cleanup)
+        )
+
+async def main():
+    """Async main entry point"""
+    hub = AsyncOSCControlHub()
     try:
-        hub.run()
+        await hub.run()
     except KeyboardInterrupt:
         print("\nShutting down gracefully...")
     finally:
-        hub.cleanup()
+        await hub.cleanup()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
