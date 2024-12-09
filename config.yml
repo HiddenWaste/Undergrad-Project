@@ -1,0 +1,103 @@
+system:
+  ports:
+    processing: 12000
+    supercollider: 57120
+    teensy: "COM6"
+  paths:
+    processing_win: "C:\\Users\\carte\\Downloads\\processing-4.3-windows-x64\\processing-4.3\\processing-java.exe"
+    processing_alt_win: "C:\\Program Files\\processing-4.3\\processing-java.exe"
+    processing_mac: "/Applications/Processing.app/Contents/MacOS/processing-java"
+    supercollider_win: "C:\\Program Files\\SuperCollider-3.13.0\\sclang.exe"
+  defaults:
+    baud_rate: 9600
+    initial_mode: "spellslinger"  # Default mode to start in
+
+modes:
+  spellslinger:
+    description: "Wizard mode with fireballs and magic missiles"
+    processing:
+      sketch: "Spellslinging"
+      commands:
+        fireball: "/fireball"
+        missile: "/missile"
+    supercollider:
+      script: "main.scd"
+      commands:
+        kick: "/kick"
+        sine: "/sine_t"
+    controls:
+      buttons:
+        dbtn:
+          type: "effect"
+          actions:
+            - target: "supercollider"
+              command: "/sine_t"
+              params: [440]
+            - target: "processing"
+              command: "/missile"
+              params: [3]
+        pbtn4:
+          type: "effect"
+          actions:
+            - target: "supercollider"
+              command: "/kick"
+              params: [300]
+            - target: "processing"
+              command: "/fireball"
+              params: [5]
+      pots:
+        pot1:
+          type: "control"
+          target: "supercollider"
+          command: "/potControl"
+          params: [0]  # frequency control
+        pot2:
+          type: "control"
+          target: "supercollider"
+          command: "/potControl"
+          params: [1]  # amplitude control
+        pot3:
+          type: "control"
+          target: "supercollider"
+          command: "/potControl"
+          params: [2]  # modulation control
+
+  ambient:  # Example of another mode
+    description: "Ambient evolving soundscapes"
+    processing:
+      sketch: "AmbientVisuals"
+      commands:
+        clouds: "/clouds"
+        waves: "/waves"
+    supercollider:
+      script: "ambient.scd"
+      commands:
+        granular: "/granular"
+        drone: "/drone"
+    controls:
+      buttons:
+        dbtn:
+          type: "toggle"
+          actions:
+            - target: "supercollider"
+              command: "/granular"
+              params: ["toggle"]
+        pbtn4:
+          type: "toggle"
+          actions:
+            - target: "supercollider"
+              command: "/drone"
+              params: ["toggle"]
+      pots:
+        pot1:
+          type: "control"
+          target: "supercollider"
+          command: "/density"
+        pot2:
+          type: "control"
+          target: "supercollider"
+          command: "/spread"
+        pot3:
+          type: "control"
+          target: "supercollider"
+          command: "/pitch"
