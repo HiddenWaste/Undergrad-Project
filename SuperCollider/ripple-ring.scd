@@ -195,6 +195,3 @@ s.waitForBoot({
     }, '/synthControl');
 });
 )
-
-
-Server.killAll;

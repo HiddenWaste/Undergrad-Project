@@ -10,7 +10,27 @@ system:
     supercollider_win: "C:\\Program Files\\SuperCollider-3.13.0\\sclang.exe"
   defaults:
     baud_rate: 9600
-    initial_mode: "spellslinger"  # Default mode to start in
+    initial_mode: "spellslinger"
+
+debug:
+  keyboard_mappings:
+    buttons:
+      space: "dbtn"    # Space bar simulates dbtn
+      z: "pbtn1"       # Z key simulates pbtn1
+      x: "pbtn4"       # X key simulates pbtn4
+    pots:
+      q:               # Hold Q and use up/down for pot1
+        type: "pot1"
+        increment_key: "up"
+        decrement_key: "down"
+      w:               # Hold W and use up/down for pot2
+        type: "pot2"
+        increment_key: "up"
+        decrement_key: "down"
+      e:               # Hold E and use up/down for pot3
+        type: "pot3"
+        increment_key: "up"
+        decrement_key: "down"
 
 modes:
   spellslinger:
@@ -20,6 +40,7 @@ modes:
       commands:
         fireball: "/fireball"
         missile: "/missile"
+        pot_control: "/potControl"
     supercollider:
       script: "main.scd"
       commands:
@@ -48,56 +69,69 @@ modes:
       pots:
         pot1:
           type: "control"
-          target: "supercollider"
+          target: "processing"
           command: "/potControl"
-          params: [0]  # frequency control
+          params: [0]
         pot2:
           type: "control"
-          target: "supercollider"
+          target: "processing"
           command: "/potControl"
-          params: [1]  # amplitude control
+          params: [1]
         pot3:
           type: "control"
-          target: "supercollider"
+          target: "processing"
           command: "/potControl"
-          params: [2]  # modulation control
-
-  ambient:  # Example of another mode
-    description: "Ambient evolving soundscapes"
+          params: [2]
+  ripple-ring:
+    description: "Visual ripples with modular synthesis"
     processing:
-      sketch: "AmbientVisuals"
+      sketch: "RippleRing"
       commands:
-        clouds: "/clouds"
-        waves: "/waves"
+        synth_select: "/synth/select"
+        mode_toggle: "/mode/global"
     supercollider:
-      script: "ambient.scd"
+      script: "ripple-ring.scd"
       commands:
-        granular: "/granular"
-        drone: "/drone"
+        synth_control: "/synthControl"
     controls:
       buttons:
         dbtn:
-          type: "toggle"
+          type: "effect"
           actions:
-            - target: "supercollider"
-              command: "/granular"
-              params: ["toggle"]
+            - target: "processing"
+              command: "/mode/global"
+              params: [1]
+            - target: "supercollider"  # Added synth trigger
+              command: "/synthControl"
+              params: [0, 1, "fmSynth", 440, 0.5, 0]
+        pbtn1:
+          type: "effect"
+          actions:
+            - target: "processing"
+              command: "/synth/select"
+              params: [-1]
+            - target: "supercollider"  # Added synth trigger
+              command: "/synthControl"
+              params: [1, 1, "granular", 220, 0.5, 0]
         pbtn4:
-          type: "toggle"
+          type: "effect"
           actions:
-            - target: "supercollider"
-              command: "/drone"
-              params: ["toggle"]
+            - target: "processing"
+              command: "/synth/select"
+              params: [1]
+            - target: "supercollider"  # Added synth trigger
+              command: "/synthControl"
+              params: [2, 1, "drone", 110, 0.5, 0]
       pots:
         pot1:
           type: "control"
-          target: "supercollider"
-          command: "/density"
+          target: "processing"
+          command: "/pot/1"
         pot2:
           type: "control"
-          target: "supercollider"
-          command: "/spread"
+          target: "processing"
+          command: "/pot/2"
         pot3:
           type: "control"
-          target: "supercollider"
-          command: "/pitch"
+          target: "processing"
+          command: "/pot/3"

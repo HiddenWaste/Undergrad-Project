@@ -4,7 +4,7 @@ import time
 import subprocess
 
 class SuperColliderManager:
-    def __init__(self, config):
+    def __init__(self, config, script_name):
         self.config = config
         self.sclang_process = None
         
@@ -13,16 +13,16 @@ class SuperColliderManager:
         else:
             self.sclang_path = "sclang"
             
-        self.start_supercollider()
+        self.start_supercollider(script_name)
         
-    def start_supercollider(self) -> bool:
+    def start_supercollider(self, script_name) -> bool:
         try:
             if self.sclang_process:
                 self.sclang_process.terminate()
                 self.sclang_process.wait()
                 
             sc_dir = os.path.abspath("SuperCollider")
-            sc_script = os.path.join(sc_dir, "so-close.scd")  # Updated script name
+            sc_script = os.path.join(sc_dir, script_name)
             
             if not os.path.exists(sc_script):
                 print(f"SuperCollider script not found at {sc_script}")

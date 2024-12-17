@@ -6,7 +6,9 @@ import time
 import os
 import sys
 import yaml
-from typing import Optional, List
+from typing import Optional, List, Dict
+import keyboard
+from threading import Lock
 from processing_manager import ProcessingManager
 from supercollider_manager import SuperColliderManager
 
@@ -19,29 +21,27 @@ class TeensyController:
         except Exception as e:
             print(f"Error loading config file: {e}")
             sys.exit(1)
-
-        # Initialize managers
-        print("Initializing Processing...")
-        self.processing = ProcessingManager(self.config)
         
-        print("Initializing SuperCollider...")
-        self.supercollider = SuperColliderManager(self.config)
+        # Initialize state
+        self.debug_mode = False
+        self.running = True
+        self.pot_values = [0, 0, 0]
+        self.pot_lock = Lock()
+        self.pot_increment = 0.05
+        self.prev_btn_states = [0, 0, 0]
         
-        # Connect to Teensy
-        port = self.config['system']['ports']['teensy']
-        baud = self.config['system']['defaults']['baud_rate']
-        
-        print(f"Connecting to Teensy on {port}...")
+        # Try to connect to Teensy
         try:
+            port = self.config['system']['ports']['teensy']
+            baud = self.config['system']['defaults']['baud_rate']
+            print(f"Connecting to Teensy on {port}...")
             self.serial = serial.Serial(port, baud)
             time.sleep(2)
             print("Successfully connected to Teensy")
         except serial.SerialException as e:
-            print(f"Error connecting to Teensy: {e}")
-            available_ports = self.list_ports()
-            if available_ports:
-                print("Available ports:", ', '.join(available_ports))
-            sys.exit(1)
+            print(f"Teensy not found: {e}")
+            print("Entering debug mode")
+            self.debug_mode = True
         
         # Initialize OSC clients
         self.sc_client = udp_client.SimpleUDPClient(
@@ -57,34 +57,82 @@ class TeensyController:
         self.current_mode = self.config['system']['defaults']['initial_mode']
         self.mode_config = self.config['modes'][self.current_mode]
         print(f"Starting in mode: {self.current_mode}")
+
+        # Initialize managers
+        print("Initializing Processing...")
+        self.processing = ProcessingManager(self.config)
         
-        # Button state tracking
-        self.prev_btn_states = [0, 0, 0]
+        print("Initializing SuperCollider...")
+        sc_script = self.mode_config['supercollider']['script']
+        self.supercollider = SuperColliderManager(self.config, sc_script)
+        
+        # Set up debug controls if needed
+        if self.debug_mode:
+            self.setup_debug_controls()
         
         print("Setup complete! Running controller...")
 
-    def list_ports(self) -> List[str]:
-        """List all available serial ports."""
-        return [port.device for port in serial.tools.list_ports.comports()]
+    def setup_debug_controls(self):
+        """Set up keyboard controls for debug mode."""
+        try:
+            debug_config = self.config['debug']['keyboard_mappings']
+            
+            # Set up button mappings
+            for key, btn in debug_config['buttons'].items():
+                keyboard.on_press_key(key, lambda e, btn=btn: self.handle_debug_button(btn))
+            
+            # Set up pot control mappings
+            for modifier_key, pot_config in debug_config['pots'].items():
+                pot_type = pot_config['type']
+                inc_key = pot_config['increment_key']
+                dec_key = pot_config['decrement_key']
+                
+                def make_pot_handler(pot_idx: int, increment: bool):
+                    def handler(e):
+                        if keyboard.is_pressed(modifier_key):
+                            self.adjust_debug_pot(pot_idx, increment)
+                    return handler
+                
+                pot_idx = int(pot_type[-1]) - 1
+                keyboard.on_press_key(inc_key, make_pot_handler(pot_idx, True))
+                keyboard.on_press_key(dec_key, make_pot_handler(pot_idx, False))
+                
+            print("Debug controls initialized. Use keyboard mappings:")
+            print(f"Buttons: {debug_config['buttons']}")
+            print(f"Pots: Hold modifier key and use arrows: {[k for k in debug_config['pots'].keys()]}")
+                
+        except KeyError as e:
+            print(f"Error in debug configuration: {e}")
+            print("Please check your config.yml has the correct debug section")
+            sys.exit(1)
 
-    def map_value(self, value: int, in_min: int = 0, in_max: int = 4095, 
-                  out_min: float = 0, out_max: float = 1.0) -> float:
-        """Map input value from one range to another."""
-        return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+    def adjust_debug_pot(self, pot_idx: int, increment: bool):
+        """Adjust pot value in debug mode."""
+        with self.pot_lock:
+            if increment:
+                self.pot_values[pot_idx] = min(1.0, self.pot_values[pot_idx] + self.pot_increment)
+            else:
+                self.pot_values[pot_idx] = max(0.0, self.pot_values[pot_idx] - self.pot_increment)
+            
+            raw_value = int(self.pot_values[pot_idx] * 4095)
+            self.handle_pot_control(f'pot{pot_idx + 1}', raw_value)
+            print(f"Pot {pot_idx + 1}: {self.pot_values[pot_idx]:.2f}")
+
+    def handle_debug_button(self, btn_name: str):
+        """Handle button press in debug mode."""
+        print(f"Debug button press: {btn_name}")
+        self.handle_button_action(btn_name)
 
     def handle_button_action(self, btn_name: str):
         """Process configured actions for a button."""
-        # Get button config for current mode
         if not (self.mode_config.get('controls', {}).get('buttons', {}).get(btn_name)):
             return
             
         btn_config = self.mode_config['controls']['buttons'][btn_name]
         
-        # Skip if no actions configured
         if 'actions' not in btn_config:
             return
             
-        # Process each configured action
         for action in btn_config['actions']:
             target = action['target']
             command = action['command']
@@ -101,17 +149,15 @@ class TeensyController:
                 print(f"Error sending OSC message: {e}")
 
     def handle_buttons(self, btn1: int, btn2: int, btn3: int):
-        """Handle button state changes based on current mode."""
+        """Handle button state changes."""
         buttons = [btn1, btn2, btn3]
         button_names = ['dbtn', 'pbtn1', 'pbtn4']
         
         for btn_idx, (btn_current, btn_prev, btn_name) in enumerate(
             zip(buttons, self.prev_btn_states, button_names)):
             
-            # Check for button press (0 to 1 transition)
             if btn_current > btn_prev:
                 self.handle_button_action(btn_name)
-                print(f"Button pressed: {btn_name}")
                 
         self.prev_btn_states = buttons
 
@@ -122,7 +168,6 @@ class TeensyController:
             
         pot_config = self.mode_config['controls']['pots'][pot_name]
         
-        # Skip if no command configured
         if 'command' not in pot_config:
             return
             
@@ -130,8 +175,6 @@ class TeensyController:
         target = pot_config['target']
         command = pot_config['command']
         params = pot_config.get('params', [])
-        
-        # Combine params with mapped value
         message = params + [mapped_value]
         
         try:
@@ -143,72 +186,80 @@ class TeensyController:
             print(f"Error sending OSC message: {e}")
 
     def handle_pots(self, pot1: int, pot2: int, pot3: int):
-        """Handle potentiometer values based on current mode."""
+        """Handle potentiometer values."""
         pot_values = [pot1, pot2, pot3]
         pot_names = ['pot1', 'pot2', 'pot3']
         
         for pot_name, raw_value in zip(pot_names, pot_values):
             self.handle_pot_control(pot_name, raw_value)
 
-    def switch_mode(self, new_mode: str) -> bool:
-        """Switch to a different mode."""
-        if new_mode not in self.config['modes']:
-            print(f"Mode {new_mode} not found")
-            return False
-            
-        print(f"Switching to mode: {new_mode}")
-        self.current_mode = new_mode
-        self.mode_config = self.config['modes'][new_mode]
-        
-        # Load mode-specific sketches and scripts
-        if 'processing' in self.mode_config:
-            sketch = self.mode_config['processing']['sketch']
-            self.processing.start_sketch(sketch)
-            
-        if 'supercollider' in self.mode_config:
-            script = self.mode_config['supercollider']['script']
-            self.supercollider.start_supercollider(script)
-            
-        return True
+    def map_value(self, value: int, in_min: int = 0, in_max: int = 4095, 
+                  out_min: float = 0, out_max: float = 1.0) -> float:
+        """Map input value from one range to another."""
+        return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 
     def run(self):
         """Main run loop."""
         try:
-            while True:
-                if self.serial.in_waiting:
-                    line = self.serial.readline().decode().strip()
-                    try:
-                        values = list(map(int, line.split(',')))
-                        if len(values) == 6:
-                            pot1, pot2, pot3 = values[0:3]
-                            btn1, btn2, btn3 = values[3:6]
-                            
-                            self.handle_buttons(btn1, btn2, btn3)
-                            self.handle_pots(pot1, pot2, pot3)
-                        else:
-                            print(f"Invalid data length: {len(values)}")
-                            
-                    except ValueError as e:
-                        print(f"Error parsing data: {e}")
-                    except Exception as e:
-                        print(f"Error processing data: {e}")
-                        
-                time.sleep(0.001)
-                
+            if self.debug_mode:
+                print("Debug mode active. Running main loop...")
+                while self.running:
+                    time.sleep(0.1)
+            else:
+                while self.running:
+                    if self.serial.in_waiting:
+                        line = self.serial.readline().decode().strip()
+                        try:
+                            values = list(map(int, line.split(',')))
+                            if len(values) == 6:
+                                pot1, pot2, pot3 = values[0:3]
+                                btn1, btn2, btn3 = values[3:6]
+                                
+                                self.handle_buttons(btn1, btn2, btn3)
+                                self.handle_pots(pot1, pot2, pot3)
+                            else:
+                                print(f"Invalid data length: {len(values)}")
+                        except ValueError as e:
+                            print(f"Error parsing data: {e}")
+                        except Exception as e:
+                            print(f"Error processing data: {e}")
+                    time.sleep(0.001)
+                    
         except KeyboardInterrupt:
             print("\nShutting down...")
         except Exception as e:
             print(f"\nUnexpected error: {e}")
         finally:
+            self.running = False
             self.cleanup()
-            
+
     def cleanup(self):
         """Clean up all resources."""
-        print("Cleaning up...")
-        self.processing.cleanup()
-        self.supercollider.cleanup()
-        if hasattr(self, 'serial') and self.serial.is_open:
-            self.serial.close()
+        print("\nCleaning up...")
+        
+        # Clean up managers first
+        if hasattr(self, 'processing'):
+            self.processing.cleanup()
+        if hasattr(self, 'supercollider'):
+            self.supercollider.cleanup()
+        
+        # Clean up debug mode
+        if self.debug_mode:
+            try:
+                keyboard.unhook_all()
+                print("Cleaned up keyboard hooks")
+            except Exception as e:
+                print(f"Error cleaning up keyboard: {e}")
+        
+        # Clean up serial connection
+        if not self.debug_mode and hasattr(self, 'serial'):
+            try:
+                if self.serial.is_open:
+                    self.serial.close()
+                    print("Closed serial connection")
+            except Exception as e:
+                print(f"Error closing serial connection: {e}")
+        
         print("Cleanup complete!")
 
 if __name__ == "__main__":
