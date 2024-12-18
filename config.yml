@@ -1,6 +1,7 @@
+# Default System Configs
 system:
   ports:
-    processing: 12000
+    processing: 12000   
     supercollider: 57120
     teensy: "COM6"
   paths:
@@ -9,15 +10,16 @@ system:
     processing_mac: "/Applications/Processing.app/Contents/MacOS/processing-java"
     supercollider_win: "C:\\Program Files\\SuperCollider-3.13.0\\sclang.exe"
   defaults:
-    baud_rate: 9600
-    initial_mode: "spellslinger"
+    baud_rate: 9600 # bit-rate for Teensy Data
+    initial_mode: "wizard" 
 
+# Debug controls
 debug:
   keyboard_mappings:
     buttons:
-      space: "dbtn"    # Space bar simulates dbtn
-      z: "pbtn1"       # Z key simulates pbtn1
-      x: "pbtn4"       # X key simulates pbtn4
+      space: "btn1"    # Space bar simulates dbtn
+      z: "btn2"       # Z key simulates pbtn1
+      x: "btn3"       # X key simulates pbtn4
     pots:
       q:               # Hold Q and use up/down for pot1
         type: "pot1"
@@ -33,7 +35,7 @@ debug:
         decrement_key: "down"
 
 modes:
-  spellslinger:
+  wizard:
     description: "Wizard mode with fireballs and magic missiles"
     processing:
       sketch: "Spellslinging"
@@ -42,13 +44,13 @@ modes:
         missile: "/missile"
         pot_control: "/potControl"
     supercollider:
-      script: "main.scd"
+      script: "spellbook.scd"
       commands:
         kick: "/kick"
         sine: "/sine_t"
     controls:
       buttons:
-        dbtn:
+        btn1:
           type: "effect"
           actions:
             - target: "supercollider"
@@ -57,7 +59,7 @@ modes:
             - target: "processing"
               command: "/missile"
               params: [3]
-        pbtn4:
+        btn2:
           type: "effect"
           actions:
             - target: "supercollider"
@@ -95,7 +97,7 @@ modes:
         synth_control: "/synthControl"
     controls:
       buttons:
-        dbtn:
+        btn1:
           type: "effect"
           actions:
             - target: "processing"
@@ -104,7 +106,7 @@ modes:
             - target: "supercollider"  # Added synth trigger
               command: "/synthControl"
               params: [0, 1, "fmSynth", 440, 0.5, 0]
-        pbtn1:
+        btn2:
           type: "effect"
           actions:
             - target: "processing"
@@ -113,7 +115,7 @@ modes:
             - target: "supercollider"  # Added synth trigger
               command: "/synthControl"
               params: [1, 1, "granular", 220, 0.5, 0]
-        pbtn4:
+        btn3:
           type: "effect"
           actions:
             - target: "processing"

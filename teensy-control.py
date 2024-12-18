@@ -1,4 +1,3 @@
-# teensy_controller.py
 from pythonosc import udp_client
 import serial
 import serial.tools.list_ports
@@ -30,6 +29,14 @@ class TeensyController:
         self.pot_increment = 0.05
         self.prev_btn_states = [0, 0, 0]
         
+        # Mode management
+        self.available_modes = list(self.config['modes'].keys())
+        self.current_mode = self.config['system']['defaults']['initial_mode']
+        self.current_mode_index = self.available_modes.index(self.current_mode)
+        self.mode_config = self.config['modes'][self.current_mode]
+        print(f"Available modes: {', '.join(self.available_modes)}")
+        print(f"Starting in mode: {self.current_mode}")
+
         # Try to connect to Teensy
         try:
             port = self.config['system']['ports']['teensy']
@@ -52,11 +59,6 @@ class TeensyController:
             "127.0.0.1", 
             self.config['system']['ports']['processing']
         )
-        
-        # Mode management
-        self.current_mode = self.config['system']['defaults']['initial_mode']
-        self.mode_config = self.config['modes'][self.current_mode]
-        print(f"Starting in mode: {self.current_mode}")
 
         # Initialize managers
         print("Initializing Processing...")
@@ -71,6 +73,24 @@ class TeensyController:
             self.setup_debug_controls()
         
         print("Setup complete! Running controller...")
+
+    def switch_to_next_mode(self):
+        """Switch to the next available mode in the configuration."""
+        self.current_mode_index = (self.current_mode_index + 1) % len(self.available_modes)
+        new_mode = self.available_modes[self.current_mode_index]
+        
+        print(f"\nSwitching to mode: {new_mode}")
+        self.current_mode = new_mode
+        self.mode_config = self.config['modes'][new_mode]
+        
+        # Update Processing sketch if needed
+        new_sketch = self.mode_config.get('processing', {}).get('sketch')
+        if new_sketch:
+            self.processing.start_sketch(new_sketch)
+        
+        # Update SuperCollider script if needed
+        new_script = self.mode_config['supercollider']['script']
+        self.supercollider = SuperColliderManager(self.config, new_script)
 
     def setup_debug_controls(self):
         """Set up keyboard controls for debug mode."""
@@ -121,7 +141,10 @@ class TeensyController:
     def handle_debug_button(self, btn_name: str):
         """Handle button press in debug mode."""
         print(f"Debug button press: {btn_name}")
-        self.handle_button_action(btn_name)
+        if btn_name == 'btn3':  # btn3 is our mode switch button
+            self.switch_to_next_mode()
+        else:
+            self.handle_button_action(btn_name)
 
     def handle_button_action(self, btn_name: str):
         """Process configured actions for a button."""
@@ -151,13 +174,16 @@ class TeensyController:
     def handle_buttons(self, btn1: int, btn2: int, btn3: int):
         """Handle button state changes."""
         buttons = [btn1, btn2, btn3]
-        button_names = ['dbtn', 'pbtn1', 'pbtn4']
+        button_names = ['btn1', 'btn2', 'btn3']
         
         for btn_idx, (btn_current, btn_prev, btn_name) in enumerate(
             zip(buttons, self.prev_btn_states, button_names)):
             
             if btn_current > btn_prev:
-                self.handle_button_action(btn_name)
+                if btn_name == 'btn3':  # btn3 is our mode switch button
+                    self.switch_to_next_mode()
+                else:
+                    self.handle_button_action(btn_name)
                 
         self.prev_btn_states = buttons
 

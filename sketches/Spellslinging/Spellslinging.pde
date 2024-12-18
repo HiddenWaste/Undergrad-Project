@@ -1,10 +1,10 @@
-// Spellslinging.pde - Save this in sketches/Spellslinging/Spellslinging.pde
+// Spellslinging.pde
 import oscP5.*;
 import netP5.*;
+
 // Constants
-final color BG_COLOR = color(0, 0, 30);
-final int MAX_FIREBALLS = 20;  // Reduced maximum
-final int MAX_MISSILES = 15;   // Maximum magic missiles
+final int MAX_FIREBALLS = 20;
+final int MAX_MISSILES = 15;
 final PVector FIREBALL_SPAWN_OFFSET = new PVector(80, -50);
 final PVector MISSILE_SPAWN_OFFSET = new PVector(100, -30);
 
@@ -18,9 +18,10 @@ ArrayList<MagicMissile> missiles;
 boolean debugMode = false;
 
 // Pot control variables
-float potSize = 1.0;    // Pot 1: controls size (0.5 to 2.0)
-float potSpeed = 1.0;   // Pot 2: controls speed (0.5 to 2.0)
-float potWizardY = 0.0; // Pot 3: controls wizard Y position (0.0 to 1.0)
+float potWizardY = 0.5;    // Pot 1: controls wizard Y position (0.5 to 1.0)
+float potSize = 1.0;       // Pot 2: controls size (0.2 to 4.0)
+float potBackground = 0.0; // Pot 3: controls background color (0.0 to 1.0)
+color bgColor = color(0, 0, 30); // Initial background color
 
 void setup() {
   size(1024, 768, P2D);
@@ -42,8 +43,8 @@ void setup() {
     println("Warning: Could not load images - using fallback shapes");
   }
   
-  // Initialize game objects
-  wizard = new Wizard(width/8, height - 200);
+  // Initialize game objects - start wizard at vertical center
+  wizard = new Wizard(width/8, height/2);
   
   // Initialize OSC last
   try {
@@ -55,7 +56,6 @@ void setup() {
 }
 
 void oscEvent(OscMessage theOscMessage) {
-  // Handle existing messages
   if (theOscMessage.checkAddrPattern("/fireball")) {
     int numFireballs = min(theOscMessage.get(0).intValue(), 3);
     for (int i = 0; i < numFireballs && fireballs.size() < MAX_FIREBALLS; i++) {
@@ -68,23 +68,33 @@ void oscEvent(OscMessage theOscMessage) {
       createMissile();
     }
   }
-  // Handle pot control messages
   else if (theOscMessage.checkAddrPattern("/potControl")) {
     int potIndex = theOscMessage.get(0).intValue();
     float value = theOscMessage.get(1).floatValue();
     
     switch(potIndex) {
-      case 0: // Pot 1: Size control
-        potSize = map(value, 0, 1, 0.5, 2.0);
+      case 0: // Pot 1: Full vertical range for wizard
+        potWizardY = value; // Keep the raw value (0 to 1) for full range
         break;
-      case 1: // Pot 2: Speed control
-        potSpeed = map(value, 0, 1, 0.5, 2.0);
+      case 1: // Pot 2: Size control (much larger max size)
+        potSize = map(value, 0, 1, 0.2, 8.0);
         break;
-      case 2: // Pot 3: Wizard Y position
-        potWizardY = value;
+      case 2: // Pot 3: More extreme background color
+        potBackground = value;
+        updateBackgroundColor(value);
         break;
     }
   }
+}
+
+void updateBackgroundColor(float value) {
+  // More extreme color range with higher saturation and brightness variation
+  float hue = map(value, 0, 1, 180, 360); // Cyan to purple range
+  float saturation = map(value, 0, 1, 30, 100); // More saturated max
+  float brightness = map(value, 0, 1, 5, 60);  // Darker min, brighter max
+  colorMode(HSB, 360, 100, 100);
+  bgColor = color(hue, saturation, brightness);
+  colorMode(RGB, 255);
 }
 
 void createFireball() {
@@ -117,7 +127,7 @@ class MagicMissile {
     angle = random(-PI/8, PI/8);
     velocity = new PVector(cos(angle), sin(angle));
     float baseSpeed = random(18, 28);
-    velocity.mult(baseSpeed * potSpeed);
+    velocity.mult(baseSpeed);
     baseLength = random(30, 45);
     length = baseLength * potSize;
     active = true;
@@ -176,17 +186,15 @@ class MagicMissile {
 
 class Wizard {
   PVector position;
-  float baseY;
   
   Wizard(float x, float y) {
     position = new PVector(x, y);
-    baseY = y;
   }
   
   void update() {
-    // Update Y position based on pot3
-    float yOffset = map(potWizardY, 0, 1, 200, -200);
-    position.y = baseY + yOffset;
+    // Map directly from 0-1 to screen height, with padding
+    float targetY = map(potWizardY, 0, 1, 100, height - 100); // Full screen range with padding
+    position.y = targetY;
   }
   
   void display() {
@@ -219,7 +227,7 @@ class Fireball {
     float angle = random(-PI/6, PI/6);
     velocity = new PVector(cos(angle), sin(angle));
     float baseSpeed = random(15, 25);
-    velocity.mult(baseSpeed * potSpeed);
+    velocity.mult(baseSpeed);
     baseSize = random(40, 60);
     size = baseSize * potSize;
     active = true;
@@ -262,7 +270,7 @@ class Fireball {
 }
 
 void draw() {
-  background(BG_COLOR);
+  background(bgColor);
   
   // Update wizard position
   wizard.update();
@@ -302,9 +310,9 @@ void draw() {
     text("FPS: " + nf(frameRate, 0, 1), 10, 10);
     text("Active fireballs: " + fireballs.size(), 10, 30);
     text("Active missiles: " + missiles.size(), 10, 50);
-    text("Size multiplier: " + nf(potSize, 0, 2), 10, 70);
-    text("Speed multiplier: " + nf(potSpeed, 0, 2), 10, 90);
-    text("Wizard Y offset: " + nf(potWizardY, 0, 2), 10, 110);
+    text("Wizard Y position: " + nf(potWizardY, 0, 2), 10, 70);
+    text("Size multiplier: " + nf(potSize, 0, 2), 10, 90);
+    text("Background value: " + nf(potBackground, 0, 2), 10, 110);
   }
 }
 

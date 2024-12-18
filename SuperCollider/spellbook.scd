@@ -1,4 +1,4 @@
-// osc_project.scd
+// spellbook.scd
 s = Server.local;
 s.options.numOutputBusChannels = 2;
 s.options.numInputBusChannels = 2;
