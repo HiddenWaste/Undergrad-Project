@@ -18,7 +18,7 @@ ArrayList<MagicMissile> missiles;
 boolean debugMode = false;
 
 // Pot control variables
-float potWizardY = 0.5;    // Pot 1: controls wizard Y position (0.5 to 1.0)
+float potWizardY = 0.5;    // Pot 1: controls wizard Y position (-1 to 2)
 float potSize = 1.0;       // Pot 2: controls size (0.2 to 4.0)
 float potBackground = 0.0; // Pot 3: controls background color (0.0 to 1.0)
 color bgColor = color(0, 0, 30); // Initial background color
@@ -74,7 +74,7 @@ void oscEvent(OscMessage theOscMessage) {
     
     switch(potIndex) {
       case 0: // Pot 1: Full vertical range for wizard
-        potWizardY = value; // Keep the raw value (0 to 1) for full range
+        potWizardY = map(value, 0, 1, -1, 2); // Map input to expanded range
         break;
       case 1: // Pot 2: Size control (much larger max size)
         potSize = map(value, 0, 1, 0.2, 8.0);
@@ -192,9 +192,9 @@ class Wizard {
   }
   
   void update() {
-    // Map directly from 0-1 to screen height, with padding
-    float targetY = map(potWizardY, 0, 1, 100, height - 100); // Full screen range with padding
-    position.y = targetY;
+    // Map expanded range to full screen height
+    float targetY = map(potWizardY, -1, 2, 0, height);
+    position.y = constrain(targetY, 20, height - 20); // Light padding to keep sprite visible
   }
   
   void display() {

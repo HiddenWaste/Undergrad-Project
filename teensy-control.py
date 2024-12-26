@@ -44,7 +44,7 @@ class TeensyController:
             print(f"Connecting to Teensy on {port}...")
             self.serial = serial.Serial(port, baud)
             time.sleep(2)
-            print("Successfully connected to Teensy")
+            print("Successfully connected to Teensy\n")
         except serial.SerialException as e:
             print(f"Teensy not found: {e}")
             print("Entering debug mode")
@@ -134,7 +134,8 @@ class TeensyController:
             else:
                 self.pot_values[pot_idx] = max(0.0, self.pot_values[pot_idx] - self.pot_increment)
             
-            raw_value = int(self.pot_values[pot_idx] * 4095)
+            # Changed to match 10-bit ADC range
+            raw_value = int(self.pot_values[pot_idx] * 1023)
             self.handle_pot_control(f'pot{pot_idx + 1}', raw_value)
             print(f"Pot {pot_idx + 1}: {self.pot_values[pot_idx]:.2f}")
 
@@ -219,7 +220,7 @@ class TeensyController:
         for pot_name, raw_value in zip(pot_names, pot_values):
             self.handle_pot_control(pot_name, raw_value)
 
-    def map_value(self, value: int, in_min: int = 0, in_max: int = 4095, 
+    def map_value(self, value: int, in_min: int = 0, in_max: int = 1023,  # Changed to 10-bit range
                   out_min: float = 0, out_max: float = 1.0) -> float:
         """Map input value from one range to another."""
         return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
