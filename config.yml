@@ -44,7 +44,7 @@ modes:
         missile: "/missile"
         pot_control: "/potControl"
     supercollider:
-      script: "spellbook.scd"
+      script: "wizardcore.scd"
       commands:
         kick: "/kick"
         sine: "/sine_t"

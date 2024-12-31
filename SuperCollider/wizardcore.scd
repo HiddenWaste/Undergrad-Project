@@ -16,14 +16,7 @@ s.waitForBoot({
     s.meter;
     s.plotTree;
 
-    // load Synths and Patterns
-    "synthdefs.scd".standardizePath.load;
-    " - SynthDefs loaded".postln;
-
-    "patterns.scd".standardizePath.load;
-    " - Patterns loaded".postln;
-
-    // Global variables for pattern control
+	// Global variables for pattern control
     ~currentPattern = nil;
     ~normalWavePatterns = Array.newClear(5);
     ~bossPattern = nil;
@@ -31,40 +24,13 @@ s.waitForBoot({
     // Define the tempo
     TempoClock.default.tempo = 120/60;
 
-    // Normal wave background patterns (dreamy, easy-going)
-    ~normalWavePatterns[0] = Pbind(
-        \instrument, \chimes,
-        \dur, Pseq([2, 2, 1, 1], inf),
-        \note, Pseq([0, 4, 7, 11], inf),
-        \octave, 5,
-        \amp, 0.3
-    );
+    // load Synths and Patterns
+    "wizard-synthdefs.scd".standardizePath.load;
+    " - SynthDefs loaded".postln;
 
-    ~normalWavePatterns[1] = Pbind(
-        \instrument, \sawPad,
-        \dur, Pseq([4], inf),
-        \note, Prand([
-            Pseq([0, 4, 7]),
-            Pseq([2, 5, 9]),
-            Pseq([-1, 2, 7])
-        ], inf),
-        \amp, 0.2
-    );
-
-    // Basic drum pattern
-    ~drumPattern = Pbind(
-        \instrument, Prand([\kick, \hihat, \snare, \clap], inf),
-        \dur, Pseq([1, 0.5, 0.5, 1], inf),
-        \amp, 0.4
-    );
-
-    // Boss wave pattern (more aggressive)
-    ~bossPattern = Pbind(
-        \instrument, \distSaw,
-        \dur, Pseq([0.25, 0.25, 0.5], inf),
-        \note, Pseq([0, 4, 7, 11, 14, 11, 7, 4], inf),
-        \amp, 0.3
-    );
+    "wizard-patterns.scd".standardizePath.load;
+    " - Patterns loaded".postln;
+    
 
     // OSC handlers for wave control
     OSCdef(\waveNormalStart, {|msg, time, addr, recvPort|
