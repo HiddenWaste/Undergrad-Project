@@ -38,7 +38,7 @@ modes:
   wizard:
     description: "Wizard mode with fireballs and magic missiles"
     processing:
-      sketch: "Spellslinging"
+      sketch: "wizardcore"
       commands:
         fireball: "/fireball"
         missile: "/missile"
@@ -103,7 +103,7 @@ modes:
             - target: "processing"
               command: "/mode/global"
               params: [1]
-            - target: "supercollider"  # Added synth trigger
+            - target: "supercollider"
               command: "/synthControl"
               params: [0, 1, "fmSynth", 440, 0.5, 0]
         btn2:
@@ -112,7 +112,7 @@ modes:
             - target: "processing"
               command: "/synth/select"
               params: [-1]
-            - target: "supercollider"  # Added synth trigger
+            - target: "supercollider"
               command: "/synthControl"
               params: [1, 1, "granular", 220, 0.5, 0]
         btn3:
@@ -121,7 +121,7 @@ modes:
             - target: "processing"
               command: "/synth/select"
               params: [1]
-            - target: "supercollider"  # Added synth trigger
+            - target: "supercollider"
               command: "/synthControl"
               params: [2, 1, "drone", 110, 0.5, 0]
       pots:
@@ -129,11 +129,14 @@ modes:
           type: "control"
           target: "processing"
           command: "/pot/1"
+          params: [0]  # Make sure this is sending a float value
         pot2:
           type: "control"
           target: "processing"
           command: "/pot/2"
+          params: [0]  # Make sure this is sending a float value
         pot3:
           type: "control"
           target: "processing"
           command: "/pot/3"
+          params: [0]  # Make sure this is sending a float value

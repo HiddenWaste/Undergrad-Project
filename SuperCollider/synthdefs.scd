@@ -8,7 +8,7 @@ SynthDef.new(\sine, {
     Out.ar(out, sig);
     }).add;
 
-	SynthDef.new(\kick, {
+SynthDef.new(\kick, {
 	arg freqA=1000, freqB=50, freqC=1, freqDur1=0.01, freqDur2=0.2, freqC1=1, freqC2=(-1),
 	atk=0.01, rel=1, c1=1, c2=(-12), amp=0.8, pan=0, out=0;
 
@@ -124,5 +124,55 @@ metadata: (
 	sig = Balance2.ar(sig[0], sig[1], pan);
 	sig = sig * env * amp;
 	Out.ar(out, sig);
+}).add;
+
+// Add to synthdefs.scd
+
+SynthDef(\chimes, {|freq = 440, amp = 0.3, gate = 1, pan = 0|
+    var sig, env;
+    env = EnvGen.kr(Env.adsr(0.1, 0.3, 0.7, 1), gate, doneAction: 2);
+    sig = SinOsc.ar(freq) * env * amp;
+    sig = sig + DelayN.ar(sig, 0.2, 0.2, 0.3);
+    sig = Pan2.ar(sig, pan);
+    Out.ar(0, sig);
+}).add;
+
+SynthDef(\sawPad, {|freq = 440, amp = 0.3, gate = 1, detune = 1.01|
+    var sig, env;
+    env = EnvGen.kr(Env.adsr(0.5, 0.3, 0.7, 1), gate, doneAction: 2);
+    sig = Saw.ar([freq, freq * detune]) * env * amp;
+    sig = LPF.ar(sig, freq * 2);
+    Out.ar(0, sig);
+}).add;
+
+SynthDef(\distSaw, {|freq = 440, amp = 0.3, gate = 1|
+    var sig, env;
+    env = EnvGen.kr(Env.adsr(0.01, 0.1, 0.8, 0.1), gate, doneAction: 2);
+    sig = Saw.ar(freq) * env * amp;
+    sig = (sig * 10).tanh;
+    sig = Pan2.ar(sig, LFNoise1.kr(0.5));
+    Out.ar(0, sig);
+}).add;
+
+// Enemy death sounds
+SynthDef(\goblinDeath, {|amp = 0.3|
+    var sig = SinOsc.ar(XLine.kr(880, 110, 0.1)) * EnvGen.kr(Env.perc(0.01, 0.1), doneAction: 2);
+    Out.ar(0, Pan2.ar(sig * amp, 0));
+}).add;
+
+SynthDef(\batDeath, {|amp = 0.3|
+    var sig = WhiteNoise.ar * EnvGen.kr(Env.perc(0.01, 0.05), doneAction: 2);
+    sig = BPF.ar(sig, 2000, 0.1);
+    Out.ar(0, Pan2.ar(sig * amp, 0));
+}).add;
+
+SynthDef(\dragonDeath, {|amp = 0.5|
+    var sig = Mix.ar([
+        SinOsc.ar(XLine.kr(220, 55, 1)),
+        Saw.ar(XLine.kr(440, 110, 0.5)),
+        WhiteNoise.ar * 0.2
+    ]) * EnvGen.kr(Env.perc(0.05, 1), doneAction: 2);
+    sig = (sig * 3).tanh;
+    Out.ar(0, Pan2.ar(sig * amp, 0));
 }).add;
 )
