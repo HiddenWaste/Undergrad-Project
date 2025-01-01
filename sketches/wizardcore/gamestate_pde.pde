@@ -143,6 +143,12 @@ class GameState {
     float y = wizard.position.y + MISSILE_SPAWN_OFFSET.y;
     missiles.add(new MagicMissile(x, y));
   }
+
+  void createThunderbolt() {
+    float x = wizard.position.x + THUNDERBOLT_SPAWN_OFFSET.x;
+    float y = wizard.position.y + THUNDERBOLT_SPAWN_OFFSET.y;
+    thuderbolts.add(new Thunderbolt(x, y));
+  }
   
   void clearProjectiles() {
     fireballs.clear();

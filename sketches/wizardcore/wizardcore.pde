@@ -7,9 +7,10 @@ final int MAX_FIREBALLS = 20;
 final int MAX_MISSILES = 15;
 final PVector FIREBALL_SPAWN_OFFSET = new PVector(80, -50);
 final PVector MISSILE_SPAWN_OFFSET = new PVector(100, -30);
+final PVector THUNDERBOLT_SPAWN_OFFSET = new PVector(80, -50);
 
 // Game objects
-PImage fireballImg, wizardImg, goblinImg;
+PImage fireballImg, wizardImg, goblinImg, lightningImg;
 OscP5 oscP5;
 GameState gameState;
 boolean debugMode = false;
@@ -42,6 +43,7 @@ void loadGameAssets() {
     fireballImg = loadImage("Fireball.png");
     wizardImg = loadImage("wizard.png");
     goblinImg = loadImage("flying-goblin.png");
+    lightningImg = loadImage("lightning.png");
     
     if (wizardImg != null) {
       wizardImg.resize(0, 200);

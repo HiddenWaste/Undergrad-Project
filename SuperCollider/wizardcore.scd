@@ -56,6 +56,11 @@ s.waitForBoot({
         });
     }, '/wave/end');
 
+    // OSCDef for clap synth
+    OSCdef(\clap, {|msg, time, addr, recvPort|
+        Synth(\clap);
+    }, '/clap');
+
     // Existing OSC handlers
     OSCdef(\sine_t, {|msg, time, addr, recvPort|
         Synth(\sine, [
