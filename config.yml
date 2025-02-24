@@ -11,7 +11,7 @@ system:
     supercollider_win: "C:\\Program Files\\SuperCollider-3.13.0\\sclang.exe"
   defaults:
     baud_rate: 9600 # bit-rate for Teensy Data
-    initial_mode: "glitch-art" 
+    initial_mode: "wizard" 
 
 # Debug controls
 debug:
