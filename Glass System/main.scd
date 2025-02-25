@@ -1,3 +1,5 @@
+Server.killAll;
+
 (
 // First load the SynthDefs and musical constraints
 (thisProcess.nowExecutingPath.dirname +/+ "glass-synthdefs.scd").load;
@@ -8,12 +10,80 @@ Server.default.waitForBoot({
     // SECTION 1: GLOBAL VARIABLES AND SETTINGS
     var tempo = 120;
     var clockDiv = 4;
+	~globalBeat = 0;     // Global beat Tracker
 
     // Initialize storage for active elements
     ~activePatterns = List.new;
     ~activePatternData = Dictionary.new;  // New: Store pattern data separately
-
     ~activeSynths = List.new;
+
+    // Create global reverb bus and synth - MOVED after initializing ~reverbSettings
+    ~createGlobalReverb = {
+        // Create a stereo bus for the reverb
+        ~reverbBus = Bus.audio(Server.default, 2);
+
+        // Reverb synth definition
+        SynthDef(\globalReverb, {
+            arg in=0, out=0, mix=0.3, room=0.6, damp=0.5;
+            var dry, wet;
+
+            // Input from the bus
+            dry = In.ar(in, 2);
+
+            // Create reverb effect
+            wet = FreeVerb2.ar(
+                dry[0], dry[1],
+                mix: mix,
+                room: room,
+                damp: damp
+            );
+
+            // Output the wet signal to master
+            Out.ar(out, wet);
+        }).add;
+
+        // Create and store the reverb synth instance
+        ~reverbSynth = Synth.after(1, \globalReverb, [
+            \in, ~reverbBus,
+            \out, 0,
+            \mix, ~reverbSettings.mix,
+            \room, ~reverbSettings.roomSize,
+            \damp, ~reverbSettings.dampening
+        ]);
+
+        // Add the reverb synth to active synths for cleanup
+        ~activeSynths.add(~reverbSynth);
+
+        "Global reverb created and running".postln;
+    };
+
+    ~playWithReverb = { |args|
+        var instrument = args[\instrument];
+        var midinote = args[\midinote];
+        var amplitude = args[\amp];
+        var reverbAmount = ~reverbSettings.amounts[instrument] ? 0.2;
+
+        // Direct output (drier signal)
+        var dryAmp = amplitude * (1 - reverbAmount);
+        var drySynth = (
+            instrument: instrument,
+            midinote: midinote,
+            amp: dryAmp,
+            out: 0
+        ).play;
+
+        // Reverb send (wet signal)
+        var wetAmp = amplitude * reverbAmount;
+        var wetSynth = (
+            instrument: instrument,
+            midinote: midinote,
+            amp: wetAmp,
+            out: ~reverbBus
+        ).play;
+
+        // Return both synths (useful if you need to modify them later)
+        [drySynth, wetSynth]
+    };
 
     // Pattern bank generator function with musical constraints
     ~generatePatternBanks = {
@@ -117,64 +187,63 @@ Server.default.waitForBoot({
     // SECTION 2: PATTERN EVOLUTION AND UTILITIES
 
     // Modified pattern evolution function with musical constraints
-    // Modified pattern evolution function
-~evolvePattern = { |currentPattern, instrument|
-    var newPattern = currentPattern.copy;
-    var operation = "No change";
-    var direction = 1;
+    ~evolvePattern = { |currentPattern, instrument|
+        var newPattern = currentPattern.copy;
+        var operation = "No change";
+        var direction = 1;
 
-    // Update musical state based on all current patterns
-    ~updateMusicalState.(~activePatternData.values.asArray);
+        // Update musical state based on all current patterns
+        ~updateMusicalState.(~activePatternData.values.asArray);
 
-    // Handle tension-based transformations
-    if(~musicalState.tension > ~controlVars.tensionThreshold, {
-        // Increase chance of transformation
-        ~controlVars.transformChance = 0.25;
+        // Handle tension-based transformations
+        if(~musicalState.tension > ~controlVars.tensionThreshold, {
+            // Increase chance of transformation
+            ~controlVars.transformChance = 0.25;
 
-        // Consider mode change if tension is very high
-        if(~musicalState.tension > ~controlVars.modeChangeThreshold, {
-            var modes = ~scales.keys.asArray;
-            ~musicalState.scale = modes.choose;
-            operation = "Mode changed to %".format(~musicalState.scale);
+            // Consider mode change if tension is very high
+            if(~musicalState.tension > ~controlVars.modeChangeThreshold, {
+                var modes = ~scales.keys.asArray;
+                ~musicalState.scale = modes.choose;
+                operation = "Mode changed to %".format(~musicalState.scale);
+            });
+        }, {
+            ~controlVars.transformChance = 0.15;
         });
-    }, {
-        ~controlVars.transformChance = 0.15;
-    });
 
-    // Handle additive/subtractive processes with scale awareness
-    if(~controlVars.isAdditive, {
-        if(currentPattern.size < ~controlVars.maxPatternLength, {
-            var nextNotes = ~getNextNotes.(1);
-            var nextNote = (
-                note: nextNotes[0],
-                vel: currentPattern.last.vel,
-                dur: currentPattern.last.dur
-            );
-            newPattern = newPattern.add(nextNote);
-            operation = "Note added (scale-aware)";
+        // Handle additive/subtractive processes with scale awareness
+        if(~controlVars.isAdditive, {
+            if(currentPattern.size < ~controlVars.maxPatternLength, {
+                var nextNotes = ~getNextNotes.(1);
+                var nextNote = (
+                    note: nextNotes[0],
+                    vel: currentPattern.last.vel,
+                    dur: currentPattern.last.dur
+                );
+                newPattern = newPattern.add(nextNote);
+                operation = "Note added (scale-aware)";
+            });
+        }, {
+            if(currentPattern.size > ~controlVars.minPatternLength, {
+                newPattern = newPattern.drop(-1);
+                operation = "Note removed";
+            });
         });
-    }, {
-        if(currentPattern.size > ~controlVars.minPatternLength, {
-            newPattern = newPattern.drop(-1);
-            operation = "Note removed";
-        });
-    });
 
-    // Previous evolution logic for velocity
-    if(~controlVars.velocityChangeChance.coin, {
-        newPattern = newPattern.collect({ |noteEvent|
-            var newVel = noteEvent.vel;
-            var velDirection = [-1, 1].choose;
-            newVel = newVel + (~controlVars.velocityStepSize * velDirection);
-            newVel = newVel.clip(~controlVars.velocityMin, ~controlVars.velocityMax);
-            noteEvent.putAll((vel: newVel));
-            noteEvent;
+        // Previous evolution logic for velocity
+        if(~controlVars.velocityChangeChance.coin, {
+            newPattern = newPattern.collect({ |noteEvent|
+                var newVel = noteEvent.vel;
+                var velDirection = [-1, 1].choose;
+                newVel = newVel + (~controlVars.velocityStepSize * velDirection);
+                newVel = newVel.clip(~controlVars.velocityMin, ~controlVars.velocityMax);
+                noteEvent.putAll((vel: newVel));
+                noteEvent;
+            });
+            operation = operation ++ " + Velocity changed";
         });
-        operation = operation ++ " + Velocity changed";
-    });
 
-    [newPattern, operation];
-};
+        [newPattern, operation];
+    };
 
     // Utility functions
     ~noteToName = { |note|
@@ -184,18 +253,27 @@ Server.default.waitForBoot({
         noteName ++ octave
     };
 
-    ~postPattern = { |instrument, notes, operation="No change"|
+    ~postPattern = { |instrument, notes, operation="No change", beatPosition=nil|
         var noteInfo = notes.collect({ |n|
-            "% (vel: %, dur: %)".format(
+            "    % (vel: %, dur: %)".format(
                 ~noteToName.(n.note),
                 n.vel.round(0.01),
                 n.dur
             )
         });
-        "=== Pattern Change ===".postln;
+
+        // Format beat position if provided
+        var beatInfo = if(beatPosition.notNil, {
+            " at beat %".format(beatPosition.round(0.1))
+        }, {
+            ""
+        });
+
+        "=== Pattern Change% ===".format(beatInfo).postln;
         ("Instrument: " ++ instrument).postln;
         ("Operation: " ++ operation).postln;
-        ("Notes: " ++ noteInfo.join(", ")).postln;
+        "Notes:".postln;
+        noteInfo.do({ |info| info.postln });
         "".postln;
     };
 
@@ -207,35 +285,42 @@ Server.default.waitForBoot({
         // Store initial pattern data
         ~activePatternData[patternKey] = basePattern.copy;
 
+        // Initial output includes beat position 0
+        ~postPattern.(instrument, basePattern, "Initial pattern", 0);
+
         player = Routine({
             var counter = 0;
             var evolutionCounter = 0;
+            var beatCounter = 0;  // Track total beats elapsed
 
             inf.do({ |i|
                 var currentPattern = ~activePatternData[patternKey];
                 var index = counter % currentPattern.size;
                 var noteEvent = currentPattern[index];
 
-                (
+                // Use the new playWithReverb function
+                ~playWithReverb.((
                     instrument: instrument,
                     midinote: noteEvent.note,
                     amp: noteEvent.vel * amp
-                ).play;
+                ));
 
-                if(evolutionCounter >= ~controlVars.additionRate, {
-                    var oldPattern = currentPattern.copy;
-                    var result = ~evolvePattern.(currentPattern, instrument);
-                    ~activePatternData[patternKey] = result[0];  // Store updated pattern
-
-                    if(oldPattern != result[0], {
-                        ~postPattern.(instrument, result[0], result[1]);
-                    });
-
-                    evolutionCounter = 0;
-                });
+                ~startGlobalBeatTracker = {
+    var tracker;
+    tracker = Routine({
+        inf.do({
+            ~globalBeat = ~globalBeat + 1;
+            1.wait;  // Wait one beat
+        });
+    });
+    tracker.play(~mainClock);
+    ~activePatterns.add(tracker);  // Add to active patterns for cleanup
+    "Global beat tracker started".postln;
+};
 
                 counter = counter + 1;
                 evolutionCounter = evolutionCounter + noteEvent.dur;
+                beatCounter = beatCounter + noteEvent.dur;  // Update total beat count
 
                 noteEvent.dur.wait;
             });
@@ -248,6 +333,19 @@ Server.default.waitForBoot({
     // SECTION 3: TIMING AND CONTROL
     ~mainClock = TempoClock.new(tempo/60);
 
+	~startGlobalBeatTracker = {
+    var tracker;
+    tracker = Routine({
+        inf.do({
+            ~globalBeat = ~globalBeat + 1;
+            1.wait;  // Wait one beat
+        });
+    });
+    tracker.play(~mainClock);
+    ~activePatterns.add(tracker);  // Add to active patterns for cleanup
+    "Global beat tracker started".postln;
+	};
+
     // Cleanup function
     ~cleanup = {
         ~activePatterns.do(_.stop);
@@ -256,22 +354,59 @@ Server.default.waitForBoot({
     };
 
     // SECTION 4: DEMO ROUTINE
+    // Modified startDemo that cycles between processes
     ~startDemo = {
-        var pianoBase = ~getNextNotes.(2).collect({ |note|
-            (note: note, vel: 0.2, dur: 0.25)
-        });
+        var pianoBase = [
+            (note: 60, vel: 0.2, dur: 0.25),
+            (note: 62, vel: 0.2, dur: 0.25)
+        ];
+        var marimbaBase = [
+            (note: 60, vel: 0.2, dur: 0.5),
+            (note: 64, vel: 0.2, dur: 0.25)
+        ];
+        var fluteBase = [
+            (note: 72, vel: 0.2, dur: 1.0),
+            (note: 67, vel: 0.2, dur: 0.5)
+        ];
 
-        var marimbaBase = ~getNextNotes.(2).collect({ |note|
-            (note: note, vel: 0.2, dur: [0.5, 0.25].choose)
-        });
+        // Define phase durations (in beats)
+        var additiveDuration = 128;
+        var subtractiveDuration = 96;
 
-        var fluteBase = ~getNextNotes.(2).collect({ |note|
-            (note: note, vel: 0.2, dur: [1.0, 0.5].choose)
-        });
+        // Create cycler function (schedules the next phase)
+        var scheduleCycle;
 
-        "=== Starting Glass-inspired Demo with Evolution ===".postln;
-        "Initial patterns will evolve every % beats".format(~controlVars.additionRate).postln;
+		~globalBeat = 0;  // Reset global beat counter
+~startGlobalBeatTracker.value();
+
+
+        scheduleCycle = { |isFirstCycle=false|
+            if(~controlVars.isAdditive, {
+                // Currently additive, schedule switch to subtractive
+                ~mainClock.sched(additiveDuration, {
+                    "=== Switching to Subtractive Process ===".postln;
+                    ~controlVars.isAdditive = false;
+                    scheduleCycle.value(false);
+                });
+            }, {
+                // Currently subtractive, schedule switch to additive
+                ~mainClock.sched(subtractiveDuration, {
+                    "=== Switching to Additive Process ===".postln;
+                    ~controlVars.isAdditive = true;
+                    scheduleCycle.value(false);
+                });
+            });
+        };
+
+        "=== Starting Glass-inspired Demo with Cycling Processes ===".postln;
+        "Will alternate between additive (% beats) and subtractive (% beats) processes.".format(
+            additiveDuration, subtractiveDuration
+        ).postln;
+        "Use ~cleanup.value when finished.".postln;
         "".postln;
+
+        // Initialize to additive mode
+        ~controlVars.isAdditive = true;
 
         // Start piano
         ~postPattern.value(\glassPiano, pianoBase);
@@ -299,20 +434,23 @@ Server.default.waitForBoot({
                 fluteBase,
                 0.1
             );
-
-            // Switch to subtractive after 96 more beats
-            ~mainClock.sched(96, {
-                "=== Switching to Subtractive Process ===".postln;
-                ~controlVars.isAdditive = false;
-            });
         });
+
+        // Start the cycle
+        scheduleCycle.value(true);
     };
+
+    // IMPORTANT: Create the reverb after all initialization is complete
+    // but before starting any patterns
+    ~createGlobalReverb.value();
 
     // Print setup confirmation
     "Glass-inspired system foundation loaded successfully.".postln;
     "Use ~startDemo.value to begin the evolving patterns".postln;
     "Use ~cleanup.value when finished.".postln;
 });
-);
+)
 
+s.plotTree;
 ~startDemo.value;
+~cleanup.value;

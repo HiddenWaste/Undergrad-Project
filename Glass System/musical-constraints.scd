@@ -11,8 +11,8 @@
 
 // Current musical state
 ~musicalState = (
-    root: 60,  // Middle C
-    scale: \minorPent,
+    root: 64,  // E for tonic note
+    scale: \dorian,
     tension: 0,  // 0-100
     harmonicDensity: 0,  // 0-100
     rhythmicDensity: 0,  // 0-100
@@ -120,4 +120,18 @@
 
     selected;
 };
+
+~reverbSettings = (
+    // Per-instrument reverb amounts (0.0 - 1.0)
+    amounts: (
+        glassPiano: 0.25,    // Medium reverb
+        glassMarimba: 0.15,  // Less reverb for clarity
+        glassFlute: 0.35     // More reverb for air
+    ),
+
+    // Global reverb parameters
+    roomSize: 0.6,
+    dampening: 0.5,
+    mix: 0.3
+);
 );

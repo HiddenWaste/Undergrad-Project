@@ -1,6 +1,6 @@
 (
 // Piano SynthDef: Rich harmonics with medium sustain
-SynthDef(\glassPiano, {
+SynthDef(\Piano, {
     arg
 	//Standard values
 	out = 0, freq = 440, amp = 0.1, att = 0.001, rel = 1, pan = 0,
@@ -36,7 +36,7 @@ metadata: (
 ).add;
 
 // Marimba SynthDef: Realistic wooden percussion with proper harmonics
-SynthDef(\glassMarimba, {
+SynthDef(\Marimba, {
     arg
 	// Standard values
 	freq = 440, out = 0, amp = 0.4, pan = 0, rq = 0.02,
@@ -70,7 +70,7 @@ metadata: (
 ).add;
 
 // Flute SynthDef: Breathy, pure tone with subtle modulation
-SynthDef(\glassFlute, {
+SynthDef(\Flute, {
     arg scl = 0.2, freq = 440, ipress = 0.9, ibreath = 0.09, ifeedbk1 = 0.4, ifeedbk2 = 0.4, dur = 1, gate = 1, amp = 2;
 
 	var kenv1, kenv2, kenvibr, kvibr, sr, cr, block;
@@ -125,4 +125,11 @@ SynthDef(\glassFlute, {
 	OffsetOut.ar( 0, [ signalOut * kenv2, signalOut * kenv2 ] );
 
 }).add;
+
+SynthDef(\reverbSend, {
+    arg in, out, amp=0.3;
+    var src = InFeedback.ar(in, 2) * amp;
+    Out.ar(out, src);
+}).add;
+
 )
