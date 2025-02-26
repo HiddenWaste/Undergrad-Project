@@ -9,7 +9,7 @@
     dorian: [0, 2, 3, 5, 7, 9, 10]
 );
 
-// Current musical state
+// default musical state
 ~musicalState = (
     root: 64,  // E for tonic note
     scale: \dorian,

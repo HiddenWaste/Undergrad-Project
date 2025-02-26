@@ -3,8 +3,8 @@ Server.freeAll;
 
 (
 // First load the SynthDefs and musical constraints
-(thisProcess.nowExecutingPath.dirname +/+ "glass-synthdefs.scd").load;
-(thisProcess.nowExecutingPath.dirname +/+ "musical-constraints.scd").load;
+// (thisProcess.nowExecutingPath.dirname +/+ "glass-synthdefs.scd").load;
+// (thisProcess.nowExecutingPath.dirname +/+ "musical-constraints.scd").load;
 
 // Wrap everything in waitForBoot
 Server.default.waitForBoot({
@@ -809,4 +809,5 @@ s.reboot;
 s.meter;
 s.plotTree;
 ~startDemo.value;
+
 ~cleanup.value;

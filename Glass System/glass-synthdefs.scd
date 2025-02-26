@@ -219,7 +219,7 @@ SynthDef(\Celesta, {
 }).add;
 
 // Simple utility SynthDef to send signals to the reverb bus
-SynthDef(\reverbSend, {
+SynthDef(\globalReverb, {
     arg in, out, amp=0.3;
     var src = InFeedback.ar(in, 2) * amp;
     Out.ar(out, src);
