@@ -1,4 +1,7 @@
 (
+// Load system parameters first if not already loaded
+(thisProcess.nowExecutingPath.dirname +/+ "system-information.scd").loadPaths;
+
 // Piano SynthDef: Rich harmonics with medium sustain
 SynthDef(\Piano, {
     arg
@@ -20,7 +23,7 @@ SynthDef(\Piano, {
 		attackTime: 0.008,
 		decayTime: 0.04,
 		mul: LFNoise2.ar(freq: amp.linlin(0, 1, tonefreq, 2 * tonefreq), mul: 0.25)
-	); //Try LFNoise1, LFNoise0, or even LFClipNoise above for a slightly grainier sound.
+	);
 
 	snd = CombL.ar(hammer, delay, delay, 50 * amp);
 	snd = HPF.ar(snd, hollowness.linlin(0, 1, 50, 1000));
@@ -71,7 +74,7 @@ metadata: (
 
 // Flute SynthDef: Breathy, pure tone with subtle modulation
 SynthDef(\Flute, {
-    arg scl = 0.2, freq = 440, ipress = 0.9, ibreath = 0.09, ifeedbk1 = 0.4, ifeedbk2 = 0.4, dur = 1, gate = 1, amp = 2;
+    arg scl = 0.2, freq = 440, ipress = 0.9, ibreath = 0.09, ifeedbk1 = 0.4, ifeedbk2 = 0.4, dur = 1, gate = 1, amp = 2, out = 0;
 
 	var kenv1, kenv2, kenvibr, kvibr, sr, cr, block;
 	var poly, signalOut, ifqc;
@@ -107,7 +110,6 @@ SynthDef(\Flute, {
 	aflute1 = fdbckArray;
 	asum2 = asum1 + ( aflute1 * ifeedbk1 );
 
-	//ax = DelayL.ar( asum2, ifqc.reciprocal * 0.5, afqc * 0.5 );
 	ax = DelayC.ar( asum2, ifqc.reciprocal - block * 0.5, afqc * 0.5 - ( asum1/ifqc/cr ) + 0.001 );
 
 	apoly = ax - ( ax.cubed );
@@ -122,8 +124,7 @@ SynthDef(\Flute, {
 
 	signalOut = avalue;
 
-	OffsetOut.ar( 0, [ signalOut * kenv2, signalOut * kenv2 ] );
-
+	Out.ar(out, Pan2.ar(signalOut * kenv2, 0));
 }).add;
 
 // Harp SynthDef: plucked string with natural decay
@@ -218,10 +219,25 @@ SynthDef(\Celesta, {
     Out.ar(out, Pan2.ar(snd, pan));
 }).add;
 
-// Simple utility SynthDef to send signals to the reverb bus
+// Reverb SynthDef - used for global reverb
 SynthDef(\globalReverb, {
-    arg in, out, amp=0.3;
-    var src = InFeedback.ar(in, 2) * amp;
-    Out.ar(out, src);
+    arg in=0, out=0, mix=0.3, room=0.6, damp=0.5;
+    var dry, wet;
+
+    // Input from the bus
+    dry = In.ar(in, 2);
+
+    // Create reverb effect
+    wet = FreeVerb2.ar(
+        dry[0], dry[1],
+        mix: mix,
+        room: room,
+        damp: damp
+    );
+
+    // Output the wet signal to master
+    Out.ar(out, wet);
 }).add;
-);
+
+"SynthDefs loaded successfully.".postln;
+)
