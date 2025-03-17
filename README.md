@@ -1,72 +1,39 @@
-# P. I. M. P v0.01
+# P. A. C. E v0.1
 
-Hello! This is my project in which I am building a (name may change) Programmable Instrument for Multi-Modal Performance, or PIMP for short.
+## Introduciton
 
-This uses SuperCollider for audio synthesis, Processing4 for the visuals, Arduino for control input, and then Python as a communicator between everything.
+Hello! This is my capstone project: a Prototyping System for Audiovisual Creative Endeavors (P.A.C.E)
 
-## SuperCollider Portion
+This system uses a Teensy 4.1 controller to read input and print it as serial data.
 
---- Needs Much Development ---
+Python then reads the serial data and interprets it according to the config file, and thenwill send the needed information to either SuperCollider or Processing4.
 
-Ideas I have for pieces/types of music I want to be able to produce:
--> Breakcore/EDM
--> Ambient/Evolving
--> Pattern Based Algorithmic Music
-    -> If I can figure out a way to do presets have a classical inspired preset?
--> Industrial
--> Esoteric Soundscapes
+This uses SuperCollider scripts for audio synthesis / playback, and Processing4 for this visual elements.
 
-I'm essentially wanting to be able to make all the kinds of music I've been itching to make, but felt like I didn't have
-the proper creative outlet to make them.
+Currently there are 3 modes that work.
 
-## Processing Portion
+# Working Modes
 
-I'm Imagining to have 3 Different Sketches that I'll need to figure out how to switch between from the Arduino, but thats a later bridge!
+## main-menu
 
-1. Spellsinger Mode
+This is an idling screen I've implemented to have playing while I am not actively showcasing the project. It's a very relatively simple mode.
 
-This is more of a fun gimmic I wanted to do, certain samples will cast certain spells
--> Hats trigger Fireballs
--> Kicks trigger Thunderbolts
+The name of the project is in the center of a sea of magenta and teal, all with VHS filters. SuperCollider plays through a file of Steve Reich's Music for 18 Musicians: Pulses. Supercollider then performs audio feature extraction to get the frequency centroid and sends that to processing via OSC.
 
--> (NI) Magic Missiles for various glitch sounds?
-
-I'm wanting this to be very fun with making breakcore type music.
-
-2. (NI) Audio Reactive Multitude
-
--> This processing sketch would have multiple modes within itself
-
-I'm thinking one minimal with a simple frequency reaction, one dreamy/vhs/colorful one, and a third.
-
-3. -- NO CONCRETE IDEA YET --
-
-## Data and Communication
-
-Python is the controlling brain in this, not so much the arduino. Python is what reads the arduino data and then creates and sends OSC data based on that. 
-
-I have a feeling that this is where I will see the main bottleneck for getting this to keep expanding. Trying to figure out the logic and button mapping in
-python to get from the Arduino input to my desired output.
+The higher the centroid the more magenta, the less the more teal!.
 
 
-## Hardware and Control Points
+## wizardcore
 
-Right now, one button that triggers a synth and makes a fireball
+This has for the entirety of the project been my main mode when working on new hardware implementations.
 
-Also, each server itself is technically a control point. Processing can talk to SuperCollider, SuperCollider can talk to Processing, SuperCollider can read Arduino, 
-vice versa, so on and so forth.
+A musical game where you control a wizard and have to cast spells to defeat waves of enemies. 
 
-I really enjoy this part of the idea as it can lead to so many extensions to it!
+Enemies and game mechanics handled by processing, and control commands are usually paired with audio commands as well, such as each spell having its own sound effect.
 
-## Known Issues and Hopes for the Future
+## build-a-synth-workshop
 
-It is still in a very primitive state. But I hope for this to be able to be capable of interesting real time performances as well as being able to mess around and record in a studio environment. 
 
-I already know I will have to upgrade the hardware, and I'm leaning towards a Raspberry Pi 5 and a Teensy 4.1 (or is 5.1 the newest?) to replace my Pi 3B and Arduino Uno.
+# Future Modes
 
-This will be able to adopt interaction with new data types and communication types relatively easily and with it being written in these highly extended languages, there is truly going to be so many directions this can go.
-
-### Wanted Implementations
--> Anything above labeled (NI)
--> DMX Automation Capabilities (Far Future, perhaps 2.0 or 3.0)
--> Midi Capabilities
+## Glassian Autonomous System (G.A.S.)
