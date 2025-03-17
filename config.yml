@@ -3,46 +3,24 @@ system:
   ports:
     processing: 12000   
     supercollider: 57120
-    teensy: "COM6"
+    teensy: "COM6"  # Change this to match your actual COM port
   paths:
     processing_win: "C:\\Users\\carte\\Downloads\\processing-4.3-windows-x64\\processing-4.3\\processing-java.exe"
     processing_alt_win: "C:\\Program Files\\processing-4.3\\processing-java.exe"
     processing_mac: "/Applications/Processing.app/Contents/MacOS/processing-java"
     supercollider_win: "C:\\Program Files\\SuperCollider-3.13.0\\sclang.exe"
   defaults:
-    baud_rate: 9600 # bit-rate for Teensy Data
-    initial_mode: "wizard" 
-
-# Debug controls
-debug:
-  keyboard_mappings:
-    buttons:
-      space: "btn1"    # Space bar simulates dbtn
-      z: "btn2"       # Z key simulates pbtn1
-      x: "btn3"       # X key simulates pbtn4
-    pots:
-      q:               # Hold Q and use up/down for pot1
-        type: "pot1"
-        increment_key: "up"
-        decrement_key: "down"
-      w:               # Hold W and use up/down for pot2
-        type: "pot2"
-        increment_key: "up"
-        decrement_key: "down"
-      e:               # Hold E and use up/down for pot3
-        type: "pot3"
-        increment_key: "up"
-        decrement_key: "down"
+    baud_rate: 115200  # Updated for new Teensy code
+    initial_mode: "main-menu" 
 
 modes:
-  wizard:
+  Wizardcore:
     description: "Wizard mode with fireballs and magic missiles"
     processing:
       sketch: "wizardcore"
       commands:
         fireball: "/fireball"
         missile: "/missile"
-        thuderbolt: "/thunderbolt"
         pot_control: "/potControl"
     supercollider:
       script: "wizardcore.scd"
@@ -68,16 +46,48 @@ modes:
               params: [300]
             - target: "processing"
               command: "/fireball"
-              params: [4]
-        btn3:
+              params: [5]
+        btn3:  # Mode switch button
+          type: "system"
+          description: "Mode switch button"
+        # New direct buttons
+        btn4:
           type: "effect"
           actions:
             - target: "supercollider"
-              command: "/clap"
-              params: [200]
+              command: "/sine_t"
+              params: [880]
+        btn5:
+          type: "effect"
+          actions:
             - target: "processing"
-              command: "/thunderbolt"
-              params: [5]
+              command: "/fireball"
+              params: [2]
+        btn6:
+          type: "effect"
+          actions:
+            - target: "processing"
+              command: "/missile"
+              params: [1]
+        btn7:
+          type: "effect"
+          actions:
+            - target: "supercollider"
+              command: "/kick"
+              params: [150]
+        # Matrix buttons (examples)
+        mbtn1:
+          type: "effect"
+          actions:
+            - target: "supercollider"
+              command: "/sine_t"
+              params: [220]
+        mbtn2:
+          type: "effect"
+          actions:
+            - target: "supercollider"
+              command: "/sine_t"
+              params: [330]
       pots:
         pot1:
           type: "control"
@@ -94,123 +104,18 @@ modes:
           target: "processing"
           command: "/potControl"
           params: [2]
-  ripple-ring:
-    description: "Visual ripples with modular synthesis"
+  main-menu:
+    description: "Idle screen for when I am not showcasing"
     processing:
-      sketch: "RippleRing"
+      sketch: "main_menu"
       commands:
-        synth_select: "/synth/select"
-        mode_toggle: "/mode/global"
+        idle: "/idle"  # Placeholder for future commands
     supercollider:
-      script: "ripple-ring.scd"
+      script: "main-menu.scd"
       commands:
-        synth_control: "/synthControl"
+        idle: "/idle"  # Placeholder for future commands
     controls:
       buttons:
-        btn1:
-          type: "effect"
-          actions:
-            - target: "processing"
-              command: "/mode/global"
-              params: [1]
-            - target: "supercollider"
-              command: "/synthControl"
-              params: [0, 1, "fmSynth", 440, 0.5, 0]
-        btn2:
-          type: "effect"
-          actions:
-            - target: "processing"
-              command: "/synth/select"
-              params: [-1]
-            - target: "supercollider"
-              command: "/synthControl"
-              params: [1, 1, "granular", 220, 0.5, 0]
-        btn3:
-          type: "effect"
-          actions:
-            - target: "processing"
-              command: "/synth/select"
-              params: [1]
-            - target: "supercollider"
-              command: "/synthControl"
-              params: [2, 1, "drone", 110, 0.5, 0]
-      pots:
-        pot1:
-          type: "control"
-          target: "processing"
-          command: "/pot/1"
-          params: [0]  # Make sure this is sending a float value
-        pot2:
-          type: "control"
-          target: "processing"
-          command: "/pot/2"
-          params: [0]  # Make sure this is sending a float value
-        pot3:
-          type: "control"
-          target: "processing"
-          command: "/pot/3"
-          params: [0]  # Make sure this is sending a float value
-  glitch-art:
-    description: "Procedural glitch art with synchronized audio-visual elements"
-    processing:
-      sketch: "GlitchArt"
-      commands:
-        add_symbol: "/symbol/add"
-        clear_screen: "/screen/clear"
-        update_color: "/color/update"
-        effect_trigger: "/effect/trigger"
-        pattern_change: "/pattern/change"
-        tempo_control: "/tempo/control"
-        background_control: "/background/control"
-    supercollider:
-      script: "glitch-patterns.scd"
-      commands:
-        tempo_control: "/tempo"
-        effect_trigger: "/effect"
-        pattern_change: "/pattern"
-        color_base: "/color/base"
-    controls:
-      buttons:
-        btn1:
-          type: "control"
-          actions:
-            - target: "supercollider"
-              command: "/color/base"
-              params: [1]
-            - target: "processing"
-              command: "/color/update"
-              params: [1]
-        btn2:
-          type: "effect"
-          actions:
-            - target: "supercollider"
-              command: "/effect/trigger"
-              params: [1]
-            - target: "processing"
-              command: "/effect/trigger"
-              params: [1]
-        btn3:
-          type: "pattern"
-          actions:
-            - target: "supercollider"
-              command: "/pattern/change"
-              params: [1]
-            - target: "processing"
-              command: "/pattern/change"
-              params: [1]
-      pots:
-        pot1:
-          type: "control"
-          target: "supercollider"
-          command: "/tempo"
-          params: []
-        pot2:
-          type: "control"
-          target: "processing"
-          command: "/background/control"
-          params: []
-        pot3:
-          type: "control"
-          target: "processing"
-          command: "/effect/select"
-          params: []
+      btn3:
+        type: "system"
+        description: "Mode switch button"

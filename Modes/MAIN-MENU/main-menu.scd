@@ -5,6 +5,8 @@ s.options.numInputBusChannels = 2;
 s.options.memSize = 8192 * 16; // Increased memory for longer buffer
 s.meter;
 
+Server.killAll;
+
 (
 // Wait for server to boot
 s.waitForBoot({

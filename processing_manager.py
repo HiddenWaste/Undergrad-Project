@@ -30,31 +30,39 @@ class ProcessingManager:
         initial_mode = self.config['system']['defaults']['initial_mode']
         initial_sketch = self.config['modes'][initial_mode]['processing']['sketch']
         
-        if initial_sketch in self.available_sketches:
-            self.start_sketch(initial_sketch)
-        else:
-            print(f"Initial sketch '{initial_sketch}' not found")
-            self.start_sketch(None)
+        self.start_sketch(initial_sketch)
 
     def find_sketches(self) -> List[str]:
+        """Find all available Processing sketches across all modes."""
         sketches = []
-        sketch_dir = "sketches"
-        if os.path.exists(sketch_dir):
-            for folder in os.listdir(sketch_dir):
-                sketch_path = os.path.join(sketch_dir, folder)
-                if (os.path.isdir(sketch_path) and 
-                    os.path.exists(os.path.join(sketch_path, f"{folder}.pde"))):
-                    sketches.append(folder)
+        
+        # Check for sketches in the modes directory structure
+        modes_dir = "modes"
+        if os.path.exists(modes_dir):
+            for mode_folder in os.listdir(modes_dir):
+                mode_path = os.path.join(modes_dir, mode_folder)
+                if not os.path.isdir(mode_path):
+                    continue
+                    
+                # Check each mode folder for .pde files
+                for item in os.listdir(mode_path):
+                    item_path = os.path.join(mode_path, item)
+                    if os.path.isdir(item_path):
+                        pde_files = [f for f in os.listdir(item_path) if f.endswith('.pde')]
+                        if pde_files:
+                            sketches.append(item)
+        
         return sketches
         
     def start_sketch(self, sketch_name: str) -> bool:
         if not sketch_name:
-            print("No sketch name provided and no default available")
+            print("No sketch name provided")
             return False
             
         if sketch_name not in self.available_sketches:
-            print(f"Sketch '{sketch_name}' not found. Available sketches: {', '.join(self.available_sketches)}")
-            return False
+            print(f"Sketch '{sketch_name}' not found in available sketches.")
+            print(f"Available sketches: {', '.join(self.available_sketches)}")
+            print("Will check in mode directories instead...")
             
         try:
             # Kill any existing Processing instances
@@ -68,9 +76,26 @@ class ProcessingManager:
                 os.system('taskkill /F /IM processing-java.exe 2>nul')
                 os.system('taskkill /F /IM java.exe 2>nul')
                 time.sleep(1)
-                
-            sketch_path = os.path.abspath(os.path.join("sketches", sketch_name))
             
+            # First, look for the sketch in the current mode folder structure
+            found = False
+            sketch_path = None
+            
+            for mode_name in self.config['modes']:
+                mode_config = self.config['modes'][mode_name]
+                if mode_config.get('processing', {}).get('sketch') == sketch_name:
+                    mode_dir = os.path.join("modes", mode_name)
+                    potential_path = os.path.join(mode_dir, sketch_name)
+                    
+                    if os.path.exists(potential_path) and os.path.isdir(potential_path):
+                        sketch_path = os.path.abspath(potential_path)
+                        found = True
+                        break
+            
+            if not found:
+                print(f"Could not find sketch {sketch_name} in any mode folder")
+                return False
+                
             # Modified command to run in regular window mode
             cmd = [
                 self.processing_path,
@@ -101,7 +126,8 @@ class ProcessingManager:
         except Exception as e:
             print(f"Error launching Processing sketch: {e}")
             print(f"Working directory: {os.getcwd()}")
-            print(f"Sketch path: {sketch_path}")
+            if sketch_path:
+                print(f"Sketch path: {sketch_path}")
             print(f"Processing path: {self.processing_path}")
             return False
 

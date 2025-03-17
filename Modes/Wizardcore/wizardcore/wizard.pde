@@ -7,7 +7,6 @@ class Wizard {
   }
   
   void update() {
-    // Map expanded range to full screen height
     float targetY = map(gameState.potWizardY, -1, 2, 0, height);
     position.y = constrain(targetY, 20, height - 20); // Light padding to keep sprite visible
   }
