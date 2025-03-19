@@ -12,18 +12,32 @@ class Wizard {
   }
   
   void display() {
-    pushMatrix();
-    translate(position.x, position.y);
-    scale(-1, 1);
-    
-    if (wizardImg != null) {
-      image(wizardImg, 0, 0);
-    } else {
-      fill(100);
+  pushMatrix();
+  translate(position.x, position.y);
+  scale(-1, 1);
+  
+  if (wizardImg != null) {
+    // Add a visual effect when power mode is active
+    if (gameState.powerModeActive) {
+      // Add a glowing effect around the wizard
       noStroke();
-      ellipse(0, 0, 50, 100);
+      fill(255, 150, 0, 150); // Orange glow
+      ellipse(0, 0, 250, 250); // Larger than the wizard image
+      
+      // Could change to a different image here when available
+      // For now, just change the tint
+      tint(255, 220, 100); // Yellow tint
     }
     
-    popMatrix();
+    image(wizardImg, 0, 0);
+    noTint(); // Reset tint
+  } else {
+    // Fallback shape
+    fill(100);
+    if (gameState.powerModeActive) {
+      fill(255, 150, 0); // Orange for power mode
+    }
+    noStroke();
+    ellipse(0, 0, 50, 100);
   }
 }

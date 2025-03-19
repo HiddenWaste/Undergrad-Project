@@ -92,7 +92,10 @@ abstract class Enemy {
     alive = false;
     // Send OSC message for death sound
     oscP5.send(new OscMessage("/" + type + "/death"), new NetAddress("127.0.0.1", 57120));
-  }
+    
+    // Register the kill with the game state
+    gameState.registerKill();
+}
   
   boolean checkCollision(PVector point, float radius) {
     return PVector.dist(position, point) < (hitboxRadius + radius);

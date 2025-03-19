@@ -11,7 +11,7 @@ system:
     supercollider_win: "C:\\Program Files\\SuperCollider-3.13.0\\sclang.exe"
   defaults:
     baud_rate: 115200  # Updated for new Teensy code
-    initial_mode: "main-menu" 
+    initial_mode: "build-a-synth" 
 
 modes:
   Wizardcore:
@@ -119,3 +119,13 @@ modes:
       btn3:
         type: "system"
         description: "Mode switch button"
+  build-a-synth:
+    description: "Allows the user to choose and edit the parameters of a synth"
+    processing:
+      sketch: "build_a_synth"
+      commands:
+        idle: "/idle" # Placeholder for future commands
+    supercollider:
+      script: "build-a-synth.scd"
+      commands:
+        idle: "/idle" # Placeholder for future commands
