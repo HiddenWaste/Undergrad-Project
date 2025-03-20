@@ -10,14 +10,6 @@ class GameState {
   float potWizardY = 0.5;
   float potSize = 1.0;
   float potBackground = 0.0;
-
-  // Power Mode
-  int killCount = 0;
-  float powerMeter = 0;
-  boolean powerModeActive = false;
-  float powerModeTimer = 0;
-  final int KILLS_FOR_POWER = 25; // Number of kills needed for power mode
-  final float POWER_MODE_DURATION = 10.0; // Duration in seconds
   
   GameState() {
     wizard = new Wizard(width/8, height/2);
@@ -29,46 +21,6 @@ class GameState {
     // Start the first wave automatically
     waveManager.startFirstWave();
   }
-
-  void registerKill() {
-  killCount++;
-  
-  // Update power meter
-  powerMeter = min(1.0, (float)killCount / KILLS_FOR_POWER);
-  
-  // Check if we've reached the threshold to enable power mode
-  if (killCount >= KILLS_FOR_POWER && !powerModeActive) {
-    // We have enough kills to enable power mode when user activates it
-    println("Power mode ready! Press 'P' to activate.");
-  }
-}
-
-// Method to activate power mode
-void activatePowerMode() {
-  if (killCount >= KILLS_FOR_POWER && !powerModeActive) {
-    powerModeActive = true;
-    powerModeTimer = POWER_MODE_DURATION;
-    println("WIZARD POWER MODE ACTIVATED for " + POWER_MODE_DURATION + " seconds!");
-    
-    // Send OSC message to SuperCollider to inform about power mode activation
-    oscP5.send(new OscMessage("/power_mode/start"), new NetAddress("127.0.0.1", 57120));
-  } else if (powerModeActive) {
-    println("Power mode already active! Time remaining: " + powerModeTimer);
-  } else {
-    println("Not enough power! Defeat " + (KILLS_FOR_POWER - killCount) + " more enemies.");
-  }
-}
-
-// Method to deactivate power mode
-void deactivatePowerMode() {
-  if (powerModeActive) {
-    powerModeActive = false;
-    println("Power mode deactivated.");
-    
-    // Send OSC message to SuperCollider to inform about power mode deactivation
-    oscP5.send(new OscMessage("/power_mode/end"), new NetAddress("127.0.0.1", 57120));
-  }
-}
   
   void handleOscMessage(OscMessage msg) {
     if (msg.checkAddrPattern("/fireball")) {
@@ -115,32 +67,12 @@ void deactivatePowerMode() {
     colorMode(RGB, 255);
   }
   
-  // Method to activate power mode
-void activatePowerMode() {
-  if (killCount >= KILLS_FOR_POWER && !powerModeActive) {
-    powerModeActive = true;
-    powerModeTimer = POWER_MODE_DURATION;
-    println("WIZARD POWER MODE ACTIVATED for " + POWER_MODE_DURATION + " seconds!");
-    
-    // Send OSC message to SuperCollider to inform about power mode activation
-    oscP5.send(new OscMessage("/power_mode/start"), new NetAddress("127.0.0.1", 57120));
-  } else if (powerModeActive) {
-    println("Power mode already active! Time remaining: " + powerModeTimer);
-  } else {
-    println("Not enough power! Defeat " + (KILLS_FOR_POWER - killCount) + " more enemies.");
+  void update() {
+    wizard.update();
+    updateProjectiles();
+    waveManager.update();
+    checkCollisions();
   }
-}
-
-// Method to deactivate power mode
-void deactivatePowerMode() {
-  if (powerModeActive) {
-    powerModeActive = false;
-    println("Power mode deactivated.");
-    
-    // Send OSC message to SuperCollider to inform about power mode deactivation
-    oscP5.send(new OscMessage("/power_mode/end"), new NetAddress("127.0.0.1", 57120));
-  }
-}
   
   void updateProjectiles() {
     // Update and clean up fireballs

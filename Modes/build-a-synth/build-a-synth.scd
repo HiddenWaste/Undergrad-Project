@@ -13,6 +13,9 @@ s.waitForBoot({
 
   // Create OSC connection to Processing
   ~procAddr = NetAddr("127.0.0.1", 12000);
+  
+  // OSC receivers for control interface
+  thisProcess.openUDPPort(57120); // Open default SC port to receive OSC
 
   // Basic mixer bus for analyzing all synths
   ~mixerBus = Bus.audio(s, 2);
@@ -513,16 +516,120 @@ s.waitForBoot({
     "Generated noise burst for testing analyzer".postln;
   };
 
+  // Next value functions for controller integration
+  ~nextWave = {
+    var nextValue = (~currentSettings.wave + 1) % 3; // Cycle through 0, 1, 2
+    ~setWave.(nextValue);
+  };
+
+  ~nextFilter = {
+    var nextValue = (~currentSettings.filter + 1) % 4; // Cycle through 0, 1, 2, 3
+    ~setFilter.(nextValue);
+  };
+
+  ~nextFx0 = {
+    var nextValue = (~currentSettings.fx0 + 1) % 3; // Cycle through 0, 1, 2
+    ~setFx0.(nextValue);
+  };
+
+  ~nextFx1 = {
+    var nextValue = (~currentSettings.fx1 + 1) % 3; // Cycle through 0, 1, 2
+    ~setFx1.(nextValue);
+  };
+
+  ~nextPreset = {
+    var nextValue = 0;
+    if(~lastPreset.isNil) {
+      ~lastPreset = 0;
+    } {
+      nextValue = (~lastPreset + 1) % 4; // Cycle through 0, 1, 2, 3
+      ~lastPreset = nextValue;
+    };
+    ~setPreset.(nextValue);
+  };
+
+  // Adjust knob mappings
+  ~adjustAttack = {|value|
+    // Map 0-1 to 0.01-2.0 exponentially for better control
+    var mappedValue = value.linexp(0, 1, 0.01, 2.0);
+    ~setAtk.(mappedValue);
+  };
+
+  ~adjustRelease = {|value|
+    // Map 0-1 to 0.01-5.0 exponentially for better control
+    var mappedValue = value.linexp(0, 1, 0.01, 5.0);
+    ~setRel.(mappedValue);
+  };
+
+  ~adjustFilterCutoff = {|value|
+    // If no filter or wrong type is active, do nothing
+    if(~currentSettings.filter == 0) {
+      // No filter active, do nothing
+      ("No filter active").postln;
+    } {
+      // Map 0-1 to 20-20000 exponentially for better frequency control
+      var mappedValue = value.linexp(0, 1, 20, 20000);
+      
+      case
+        { ~currentSettings.filter == 1 } { ~setHpf.(mappedValue); }
+        { ~currentSettings.filter == 2 } { ~setLpf.(mappedValue); }
+        { ~currentSettings.filter == 3 } { ~setBpf.(mappedValue); };
+    }
+  };
+
+  ~adjustFilterQ = {|value|
+    // If no filter active, do nothing
+    if(~currentSettings.filter == 0) {
+      ("No filter active").postln;
+    } {
+      // Map 0-1 to 0.1-10 exponentially for better Q control
+      var mappedValue = value.linexp(0, 1, 0.1, 10);
+      ~setRq.(mappedValue);
+    }
+  };
+
+  ~adjustVolume = {|value|
+    // Map 0-1 to 0-1 linearly for volume
+    ~setAmp.(value);
+  };
+
+  // Create OSC handlers for controller integration
+  OSCdef(\controller, {|msg, time, addr, recvPort|
+    var command = msg[1].asSymbol;
+    var value = if(msg.size > 2) { msg[2].asFloat } { nil };
+
+    ("Received command: " ++ command).postln;
+
+    case
+      { command == \nextWave } { ~nextWave.() }
+      { command == \nextFilter } { ~nextFilter.() }
+      { command == \nextFx0 } { ~nextFx0.() }
+      { command == \nextFx1 } { ~nextFx1.() }
+      { command == \nextPreset } { ~nextPreset.() }
+      { command == \playTestNote } { ~playTestNote.(60, 1) }
+      { command == \playTestChord } { ~playTestChord.() }
+      { command == \adjustAttack } { ~adjustAttack.(value) }
+      { command == \adjustRelease } { ~adjustRelease.(value) }
+      { command == \adjustFilterCutoff } { ~adjustFilterCutoff.(value) }
+      { command == \adjustFilterQ } { ~adjustFilterQ.(value) }
+      { command == \adjustVolume } { ~adjustVolume.(value) };
+
+  }, '/synth/controller');
+
   "Build-A-Synth with MIDI and OSC ready!".postln;
-  "Play your MIDI keyboard and use parameter change functions:".postln;
-  "~setWave.(0) : Sine wave (0-2)".postln;
-  "~setFilter.(2) : Low-pass filter (0-3)".postln;
-  "~setFx0.(1) : Reverb effect (0-2)".postln;
-  "~setPreset.(0) : Load presets (0-3)".postln;
-  "~playTestNote.(60, 1) : Play test note".postln;
-  "~playTestChord.([60, 64, 67], 1) : Play test chord".postln;
-  "~playArpeggio.([60, 64, 67, 72], 0.25, 0.2) : Play arpeggio".postln;
-  "~generateNoise.(2) : Generate noise burst for testing".postln;
+  "Available OSC commands:".postln;
+  "  /synth/controller nextWave - Cycle to next waveform".postln;
+  "  /synth/controller nextFilter - Cycle to next filter type".postln;
+  "  /synth/controller nextFx0 - Cycle to next effect 1".postln;
+  "  /synth/controller nextFx1 - Cycle to next effect 2".postln;
+  "  /synth/controller nextPreset - Cycle to next preset".postln;
+  "  /synth/controller playTestNote - Play a test note".postln;
+  "  /synth/controller playTestChord - Play a test chord".postln;
+  "  /synth/controller adjustAttack value - Set attack (0-1)".postln;
+  "  /synth/controller adjustRelease value - Set release (0-1)".postln;
+  "  /synth/controller adjustFilterCutoff value - Set filter cutoff (0-1)".postln;
+  "  /synth/controller adjustFilterQ value - Set filter Q (0-1)".postln;
+  "  /synth/controller adjustVolume value - Set volume (0-1)".postln;
 
   s.meter;
 
@@ -532,36 +639,3 @@ s.waitForBoot({
 )
 
 // Server.killAll;
-
-
-// // Try different wave types
-// ~setWave.(0);  // Sine wave
-// ~setWave.(1);  // Saw wave
-// ~setWave.(2);  // Triangle wave
-
-// // Try different filters
-// ~setFilter.(0);  // No filter
-// ~setFilter.(1);  // High pass filter
-// ~setFilter.(2);  // Low pass filter
-// ~setFilter.(3);  // Band pass filter
-
-// // Adjust filter parameters
-// ~setLpf.(800);    // Lower cutoff for LPF
-// ~setHpf.(2000);   // Higher cutoff for HPF
-// ~setBpf.(1200);   // Change center frequency for BPF
-// ~setRq.(0.5);     // Narrow bandwidth for BPF
-
-// // Try different effects
-// ~setFx0.(0);  // No effect for slot 1
-// ~setFx0.(1);  // Reverb for slot 1
-// ~setFx0.(0.6);  // Limiter for slot 1
-
-// // Adjust envelope
-// ~setAtk.(0.01);  // Fast attack
-// ~setRel.(1.5);   // Long release
-
-// // Try some presets
-// ~setPreset.(0);  // Clean sound
-// ~setPreset.(1);  // Saw with LPF
-// ~setPreset.(2);  // Reverb pad
-// ~setPreset.(3);  // Bass sound

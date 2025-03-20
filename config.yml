@@ -123,9 +123,28 @@ modes:
     description: "Allows the user to choose and edit the parameters of a synth"
     processing:
       sketch: "build_a_synth"
-      commands:
-        idle: "/idle" # Placeholder for future commands
     supercollider:
       script: "build-a-synth.scd"
-      commands:
-        idle: "/idle" # Placeholder for future commands
+    controls:
+      buttons:
+        btn1:
+          type: "control"
+          actions:
+            - target: "supercollider"
+              command: "/synth/controller"
+              params: ["nextWave"]
+        btn2:
+          type: "control"
+          actions:
+            - target: "supercollider"
+              command: "/synth/controller"
+              params: ["nextFilter"]
+        btn4:
+          type: "control"
+          actions:
+            - target: "supercollider"
+              command: "/synth/controller"
+              params: ["nextFx0"]
+        btn7:
+          type: "system"
+          description: "Mode switch button"

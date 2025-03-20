@@ -60,7 +60,6 @@ void oscEvent(OscMessage theOscMessage) {
   gameState.handleOscMessage(theOscMessage);
 }
 
-
 void draw() {
   background(gameState.getBgColor());
   gameState.update();
@@ -99,12 +98,12 @@ void keyPressed() {
   if (key == 'c' || key == 'C') {
     gameState.clearProjectiles();
   }
+  // Add test goblin with G key
+  //if (key == 'g' || key == 'G') {
+  //  gameState.spawnTestGoblin();
+  //}
   if (key == ' ' && !waveManager.isWaveActive()) {
     waveManager.startNextWave();
-  }
-  // Add this new condition for power mode activation
-  if (key == 'p' || key == 'P') {
-    gameState.activatePowerMode();
   }
 }
 
